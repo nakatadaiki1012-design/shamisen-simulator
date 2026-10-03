@@ -53,17 +53,18 @@ export default function App() {
   const [tuningId, setTuningId] = useState<Tuning['id']>('honchoshi');
   const [honsu, setHonsu] = useState(4);
   const [labelMode, setLabelMode] = useState<LabelMode>(() => loadPref('shamisen_label', 'bunka'));
-  const [showLabels, setShowLabels] = useState(true);
+  const [showLabels, setShowLabels] = useState<boolean>(() => loadPref('shamisen_show_labels', true));
   const [orientation, setOrientation] = useState<'horizontal' | 'vertical'>(() =>
     window.innerWidth < 768 && window.innerHeight > window.innerWidth ? 'vertical' : 'horizontal'
   );
   // 縦向き（スマホ）では勘所が小さくなりすぎるので、最初は「10」（1オクターブ）までを表示
   const [range, setRange] = useState<'octave' | 'full'>(() =>
-    window.innerWidth < 768 && window.innerHeight > window.innerWidth ? 'octave' : 'full'
+    // ノートPCより小さい画面では、勘所を大きく見せるため「0〜10」から始める
+    loadPref('shamisen_range', Math.max(window.innerWidth, window.innerHeight) < 1100 ? 'octave' : 'full')
   );
   const maxSemitone = range === 'octave' ? 12 : MAX_SEMITONE;
   const [technique, setTechnique] = useState<Technique>('bachi');
-  const [sawari, setSawari] = useState(true);
+  const [sawari, setSawari] = useState<boolean>(() => loadPref('shamisen_sawari', true));
   const [guideOpen, setGuideOpen] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
 
@@ -76,6 +77,9 @@ export default function App() {
   const tuning = getTuning(tuningId);
 
   useEffect(() => savePref('shamisen_label', labelMode), [labelMode]);
+  useEffect(() => savePref('shamisen_show_labels', showLabels), [showLabels]);
+  useEffect(() => savePref('shamisen_sawari', sawari), [sawari]);
+  useEffect(() => savePref('shamisen_range', range), [range]);
   useEffect(() => soundEngine.setSawari(sawari), [sawari]);
 
   // 今の調子・本数で使う音を、空き時間に前もって作っておく

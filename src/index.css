@@ -100,6 +100,7 @@
     padding-bottom: 2px;
   }
   .song-desc,
+  .song-meta,
   .tech-desc {
     display: none !important;
   }

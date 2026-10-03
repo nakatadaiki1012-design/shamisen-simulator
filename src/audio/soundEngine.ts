@@ -204,6 +204,13 @@ class SoundEngine {
     this.sawari = on;
   }
 
+  /** 音が実際にスピーカーから出るまでの遅れ（ミリ秒）。Bluetooth などでは大きくなる */
+  get outputLatencyMs() {
+    if (!this.ctx) return 0;
+    const lat = (this.ctx as AudioContext & { outputLatency?: number }).outputLatency || this.ctx.baseLatency || 0;
+    return Math.min(400, lat * 1000);
+  }
+
   get ready() {
     return this.ctx !== null;
   }

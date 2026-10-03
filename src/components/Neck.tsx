@@ -196,7 +196,11 @@ export function Neck({
                       mark
                         ? MARK_STYLE[mark]
                         : 'bg-stone-950/55 text-amber-50/90 group-hover:bg-amber-100/30 group-active:bg-amber-100/50'
-                    } ${labelMode === 'bunka' ? 'bunka text-[0.7rem] sm:text-sm' : 'text-[0.55rem] sm:text-xs'}`}
+                    } ${
+                      labelMode === 'bunka'
+                        ? `bunka ${semitone > 12 && !vertical ? 'text-[0.6rem] sm:text-xs tracking-tighter' : 'text-[0.7rem] sm:text-sm'}`
+                        : 'text-[0.55rem] sm:text-xs'
+                    }`}
                   >
                     {showLabels || mark ? label : '・'}
                   </span>

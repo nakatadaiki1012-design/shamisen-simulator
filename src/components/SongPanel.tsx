@@ -108,7 +108,8 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
       beats.push({ delay: lead + (b * spbMs) / 1000, accent: b < COUNT_IN ? b === 0 : (b - COUNT_IN) % 4 === 0 });
     }
     soundEngine.scheduleClicks(beats);
-    startAt.current = performance.now() + lead * 1000 + COUNT_IN * spbMs;
+    // メトロノームが「聞こえる」時刻に合わせる（音の出る遅れの分だけ後ろにずらす）
+    startAt.current = performance.now() + lead * 1000 + COUNT_IN * spbMs + soundEngine.outputLatencyMs;
     setCountdown(COUNT_IN);
     setRhythm('count');
   };
@@ -313,7 +314,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
             </option>
           ))}
         </select>
-        <span className="text-xs text-stone-400">
+        <span className="song-meta text-xs text-stone-400">
           {getTuning(song.tuningId).name}・{honsuName(song.honsu)}
         </span>
         {!settingsMatch && (
@@ -325,7 +326,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
           </button>
         )}
         <div className="flex-1" />
-        <div className="hidden sm:flex items-center gap-1.5 text-xs text-stone-400" title="進みぐあい">
+        <div className="song-meta hidden sm:flex items-center gap-1.5 text-xs text-stone-400" title="進みぐあい">
           <div className="w-20 h-1.5 rounded-full bg-stone-700 overflow-hidden">
             <div className="h-full bg-amber-400 transition-all" style={{ width: `${(Math.min(index, song.notes.length) / song.notes.length) * 100}%` }} />
           </div>
@@ -338,7 +339,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
             title="次に弾く音を聴く（判定には入りません）"
           >
             <Volume2 size={15} />
-            <span className="hidden sm:inline">この音</span>
+            <span className="hidden lg:inline">この音</span>
           </button>
         )}
         <button
@@ -356,7 +357,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
           }`}
         >
           {demo ? <Pause size={15} /> : <Volume2 size={15} />}
-          {demo ? '止める' : 'お手本を聴く'}
+          {demo ? '止める' : <span>お手本<span className="hidden xl:inline">を聴く</span></span>}
         </button>
         <button
           onClick={() => (rhythm === 'count' || rhythm === 'play' ? stopRhythm() : startRhythm())}
@@ -368,7 +369,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
           title="メトロノームに合わせて弾き、タイミングを判定します"
         >
           {rhythm === 'count' || rhythm === 'play' ? <Square size={14} /> : <Timer size={15} />}
-          {rhythm === 'count' || rhythm === 'play' ? '止める' : 'テンポに合わせて弾く'}
+          {rhythm === 'count' || rhythm === 'play' ? '止める' : <span>テンポ<span className="hidden xl:inline">に合わせて弾く</span><span className="xl:hidden">練習</span></span>}
         </button>
         <select
           value={tempo}
@@ -390,7 +391,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
           className="flex items-center gap-1 text-sm rounded-lg px-3 py-1.5 bg-stone-800 border border-stone-700 hover:bg-stone-700"
         >
           <RotateCcw size={15} />
-          最初から
+          <span className="hidden sm:inline">最初から</span>
         </button>
       </div>
 
