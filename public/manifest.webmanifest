@@ -1,0 +1,11 @@
+{
+  "name": "三味線 学習用シミュレーター",
+  "short_name": "三味線",
+  "description": "勘所と文化譜を見ながら練習できる、学習用の三味線Webアプリ",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0c0a09",
+  "theme_color": "#0c0a09",
+  "lang": "ja",
+  "icons": [{ "src": "favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

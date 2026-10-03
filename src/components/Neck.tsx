@@ -131,7 +131,7 @@ export function Neck({
     >
       {/* 天神（てんじん）と糸巻 */}
       <div
-        className={`${vertical ? 'h-10 w-full flex-row' : 'w-12 sm:w-16 h-full flex-col'} shrink-0 flex items-center justify-center gap-2 bg-gradient-to-br from-stone-800 to-stone-950 border-stone-700 ${vertical ? 'border-b' : 'border-r'}`}
+        className={`${vertical ? 'h-7 w-full flex-row' : 'w-12 sm:w-16 h-full flex-col'} shrink-0 flex items-center justify-center gap-2 bg-gradient-to-br from-stone-800 to-stone-950 border-stone-700 ${vertical ? 'border-b' : 'border-r'}`}
       >
         <span className="font-serif-jp text-stone-400 text-xs sm:text-sm [writing-mode:vertical-rl]">
           {vertical ? "" : ""}

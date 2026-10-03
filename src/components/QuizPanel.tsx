@@ -66,6 +66,7 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
   const [state, setState] = useState<'asking' | 'wrong' | 'correct' | 'revealed'>('asking');
   const [wrongAt, setWrongAt] = useState<Question | null>(null);
   const [wrongChoice, setWrongChoice] = useState<number | null>(null);
+  const [hint, setHint] = useState(false);
   const choices = useMemo(
     () => makeChoices(q.semitone, Math.min(LEVELS[level].max, maxSemitone)),
     [q, level, maxSemitone]
@@ -83,6 +84,7 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
       setState('asking');
       setWrongAt(null);
       setWrongChoice(null);
+      setHint(false);
       triedThisQ.current = false;
       if (t === 'ear') setTimeout(() => onListen(nq.string, nq.semitone), 250);
     },
@@ -247,6 +249,16 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
               <Volume2 size={16} /> 音を聴く
             </button>
             <span className="text-stone-300">同じ高さの音をさがしてタップ！（どの糸でもOK）</span>
+            {hint ? (
+              <span className="text-sky-300 text-sm">ヒント: {STRING_NAMES[q.string]}で鳴らした音です</span>
+            ) : (
+              <button
+                onClick={() => setHint(true)}
+                className="text-xs rounded-lg px-2 py-1 bg-stone-800 border border-stone-700 hover:bg-stone-700"
+              >
+                💡 ヒント
+              </button>
+            )}
           </div>
         )}
 
