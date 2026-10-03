@@ -5,7 +5,8 @@
  * - 軽い残響（ホールっぽさ）とコンプレッサーで音量をそろえる
  */
 import { StringNo, Technique } from '../data/notation';
-import { synthesizeShamisen } from './shamisenSynth';
+import { synthesizeShamisen, toAudioBuffer } from './shamisenSynth';
+import type { SynthRequest } from './synthWorker';
 import { unlockWebAudio } from './audioUnlock';
 
 /** 取っておく音の種類の上限（メモリを使いすぎないように） */
@@ -25,6 +26,59 @@ class SoundEngine {
   private prewarmGen = 0;
   private unlocked = false;
   private pendingVariants = new Set<string>();
+  /** 別スレッドの計算係（使えない環境では null） */
+  private worker: Worker | null | undefined;
+
+  private getWorker(): Worker | null {
+    if (this.worker !== undefined) return this.worker;
+    try {
+      const w = new Worker(new URL('./synthWorker.ts', import.meta.url), { type: 'module' });
+      w.onmessage = (e: MessageEvent<{ key: string; data: Float32Array }>) => {
+        const { key, data } = e.data;
+        this.pendingVariants.delete(key);
+        if (!this.ctx) return;
+        const list = this.cache.get(key) ?? [];
+        if (list.length < 2) {
+          list.push(toAudioBuffer(this.ctx, data));
+          this.remember(key, list);
+        }
+      };
+      w.onerror = () => {
+        // Worker が動かない環境では、画面と同じスレッドで作る方式にもどす
+        this.worker = null;
+        this.pendingVariants.clear();
+      };
+      this.worker = w;
+    } catch {
+      this.worker = null;
+    }
+    return this.worker;
+  }
+
+  /** 音をあとで作っておく（Worker があればそちらで、なければ空き時間に） */
+  private synthLater(freq: number, technique: Technique, ichiFreq: number, delay = 400) {
+    const key = this.cacheKey(freq, technique, ichiFreq);
+    if (this.pendingVariants.has(key) || !this.ctx) return;
+    this.pendingVariants.add(key);
+    const worker = this.getWorker();
+    if (worker) {
+      const req: SynthRequest = {
+        key,
+        sampleRate: this.ctx.sampleRate,
+        options: { frequency: freq, technique, ichiFrequency: ichiFreq, sawari: this.sawari },
+      };
+      worker.postMessage(req);
+      return;
+    }
+    setTimeout(() => {
+      this.pendingVariants.delete(key);
+      const cur = this.cache.get(key) ?? [];
+      if (cur.length < 2 && this.ctx) {
+        cur.push(this.synth(freq, technique, ichiFreq));
+        this.remember(key, cur);
+      }
+    }, delay);
+  }
   sawari = true;
 
   init() {
@@ -93,14 +147,7 @@ class SoundEngine {
     }
     this.remember(key, list);
     // 毎回少し違う音になるよう、2 種類目は空いている時間に作っておく（弾いた瞬間の処理を軽く）
-    if (list.length < 2 && !this.pendingVariants.has(key)) {
-      this.pendingVariants.add(key);
-      setTimeout(() => {
-        this.pendingVariants.delete(key);
-        const cur = this.cache.get(key);
-        if (cur && cur.length < 2 && this.ctx) cur.push(this.synth(freq, technique, ichiFreq));
-      }, 400);
-    }
+    if (list.length < 2) this.synthLater(freq, technique, ichiFreq);
     return list[list.length - 1];
   }
 
@@ -111,6 +158,12 @@ class SoundEngine {
   prewarm(notes: { freq: number; ichiFreq: number }[]) {
     if (!this.ctx) return;
     const gen = ++this.prewarmGen;
+    if (this.getWorker()) {
+      for (const { freq, ichiFreq } of notes) {
+        if (!this.cache.has(this.cacheKey(freq, 'bachi', ichiFreq))) this.synthLater(freq, 'bachi', ichiFreq);
+      }
+      return;
+    }
     let i = 0;
     const step = () => {
       if (gen !== this.prewarmGen || !this.ctx) return;

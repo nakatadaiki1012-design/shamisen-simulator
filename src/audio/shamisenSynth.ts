@@ -102,8 +102,8 @@ function normalize(buf: Float32Array) {
   if (peak > 1e-6) for (let i = 0; i < buf.length; i++) buf[i] /= peak;
 }
 
-export function synthesizeShamisen(ctx: BaseAudioContext, o: ShamisenSynthOptions): AudioBuffer {
-  const sr = ctx.sampleRate;
+/** 波形（数値の並び）だけを計算する。画面とは別のスレッド（Worker）でも使える */
+export function renderShamisen(sr: number, o: ShamisenSynthOptions): Float32Array {
   const freq = Math.max(50, Math.min(sr / 8, o.frequency));
   const t60 = decayTime(freq, o.technique);
   const seconds = Math.min(2.6, t60 * 0.9);
@@ -194,8 +194,17 @@ export function synthesizeShamisen(ctx: BaseAudioContext, o: ShamisenSynthOption
   }
 
   normalize(out);
-  const buffer = ctx.createBuffer(1, total, sr);
-  const ch = buffer.getChannelData(0);
-  for (let i = 0; i < total; i++) ch[i] = out[i] * 0.85 * level;
+  for (let i = 0; i < total; i++) out[i] *= 0.85 * level;
+  return out;
+}
+
+/** 計算した波形を、Web Audio で鳴らせる形（AudioBuffer）にする */
+export function toAudioBuffer(ctx: BaseAudioContext, data: Float32Array): AudioBuffer {
+  const buffer = ctx.createBuffer(1, data.length, ctx.sampleRate);
+  buffer.getChannelData(0).set(data);
   return buffer;
+}
+
+export function synthesizeShamisen(ctx: BaseAudioContext, o: ShamisenSynthOptions): AudioBuffer {
+  return toAudioBuffer(ctx, renderShamisen(ctx.sampleRate, o));
 }

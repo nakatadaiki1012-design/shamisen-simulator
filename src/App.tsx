@@ -113,13 +113,14 @@ export default function App() {
     soundEngine.prewarm(notes);
   }, [audioReady, tuning, honsu, sawari, maxSemitone]);
 
-  // 最初のタッチ・クリックで音を出せる状態にする（スマホ対策）
+  // タッチ・クリックのたびに、音を出せる状態か確かめる（スマホ対策）
+  // 一度鳴らせる状態になれば、この確認はほとんど時間がかからない。
+  // iPhone などでスリープ後に音が止められても、次のタッチでまた鳴るようになる。
   useEffect(() => {
     const events = ['pointerdown', 'touchend', 'keydown'];
     const unlock = () => {
       soundEngine.init();
       setAudioReady(true);
-      events.forEach((e) => window.removeEventListener(e, unlock));
     };
     events.forEach((e) => window.addEventListener(e, unlock, { passive: true }));
     return () => events.forEach((e) => window.removeEventListener(e, unlock));
