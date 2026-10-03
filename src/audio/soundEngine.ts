@@ -215,6 +215,9 @@ class SoundEngine {
     source.start(now);
     source.onended = () => {
       if (this.voices.get(s)?.source === source) this.voices.delete(s);
+      // 鳴り終わった音のつながりを外す（長時間使ってもブラウザが重くならないように）
+      source.disconnect();
+      gain.disconnect();
     };
     this.voices.set(s, { source, gain, freq });
   }
