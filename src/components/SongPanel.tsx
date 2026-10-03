@@ -64,6 +64,8 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   const [message, setMessage] = useState<string>('');
   const [demo, setDemo] = useState(false);
   const [tempo, setTempo] = useState(1);
+  const [loop, setLoop] = useState(false);
+  const [loopCount, setLoopCount] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // テンポに合わせて弾くモード
@@ -84,6 +86,34 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   }, [song]);
   const totalBeats = song.notes.reduce((a, n) => a + n.beats, 0);
   const handledId = useRef<number | null>(lastPlayed?.id ?? null);
+
+  /** i 番目の音がふくまれる区切り（「さくら さくら」など）の最初と、次の区切りの最初 */
+  const sectionOf = (i: number) => {
+    let start = 0;
+    for (let j = Math.min(i, song.notes.length - 1); j >= 0; j--) {
+      if (song.notes[j].section) {
+        start = j;
+        break;
+      }
+    }
+    let end = song.notes.length;
+    for (let j = start + 1; j < song.notes.length; j++) {
+      if (song.notes[j].section) {
+        end = j;
+        break;
+      }
+    }
+    return { start, end };
+  };
+  /** 次の音へ。区間練習がオンなら、区切りの終わりで最初にもどる */
+  const advance = (i: number) => {
+    const { start, end } = sectionOf(i);
+    if (loop && i + 1 >= end) {
+      setLoopCount((c) => c + 1);
+      return start;
+    }
+    return i + 1;
+  };
 
   const finished = index >= song.notes.length;
   const target: SongNote | undefined = song.notes[index];
@@ -132,6 +162,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   }, []);
 
   const restart = () => {
+    setLoopCount(0);
     setIndex(0);
     setMistakes(0);
     setFeedback(null);
@@ -150,7 +181,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
     if (lastPlayed.string === target.string && lastPlayed.semitone === target.semitone) {
       setFeedback({ kind: 'ok', s: lastPlayed.string, semitone: lastPlayed.semitone });
       setMessage('');
-      setIndex((i) => i + 1);
+      setIndex(advance(index));
     } else {
       setMistakes((m) => m + 1);
       setFeedback({ kind: 'ng', s: lastPlayed.string, semitone: lastPlayed.semitone });
@@ -162,7 +193,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastPlayed, demo, finished, target, tuning, honsu, rhythm]);
+  }, [lastPlayed, demo, finished, target, tuning, honsu, rhythm, loop, index]);
 
   /**
    * テンポモードの判定: 同じ勘所で、まだ判定していない音のうち
@@ -265,9 +296,10 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
     const note = song.notes[index];
     onDemoNote(note.string, note.semitone, note.technique ?? 'bachi');
     const ms = (60000 / (song.bpm * tempo)) * note.beats;
-    const t = setTimeout(() => setIndex((i) => i + 1), ms);
+    const t = setTimeout(() => setIndex(advance(index)), ms);
     return () => clearTimeout(t);
-  }, [demo, index, finished, song, tempo, onDemoNote]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo, index, finished, song, tempo, onDemoNote, loop]);
 
   // 棹の上の表示
   useEffect(() => {
@@ -382,6 +414,21 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
           <option value={0.75}>少しゆっくり</option>
           <option value={1}>ふつう</option>
         </select>
+        <label
+          className="flex items-center gap-1 text-xs text-stone-300 cursor-pointer whitespace-nowrap"
+          title="今の区切り（歌詞のまとまり）を、できるまで何度もくり返します（テンポ練習では使えません）"
+        >
+          <input
+            type="checkbox"
+            checked={loop}
+            onChange={(e) => {
+              setLoop(e.target.checked);
+              setLoopCount(0);
+            }}
+            className="accent-amber-500"
+          />
+          区間練習
+        </label>
         <button
           onClick={() => {
             setDemo(false);
@@ -509,6 +556,11 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
         ) : target ? (
           <span className="text-stone-300 flex items-center gap-1 flex-wrap">
             <Hand size={13} className="text-amber-400" />
+            {loop && (
+              <span className="text-amber-200 bg-amber-900/50 rounded px-1.5 mr-1">
+                🔁「{song.notes[sectionOf(index).start].section}」{loopCount > 0 ? `${loopCount}回目クリア` : 'をくり返し中'}
+              </span>
+            )}
             次は <b className="text-amber-300">{STRING_NAMES[target.string]}</b> の
             <b className="text-amber-300 bunka text-base">「{bunkaLabel(target.semitone)}」</b>
             <span className="text-stone-500">

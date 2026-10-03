@@ -72,9 +72,12 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
   );
   const handledId = useRef<number | null>(lastPlayed?.id ?? null);
   const triedThisQ = useRef(false);
+  const nextTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => clearTimeout(nextTimer.current), []);
 
   const next = useCallback(
     (lv: Level = level, t: QuizType = type) => {
+      clearTimeout(nextTimer.current);
       const nq = randomQuestion(lv, q, maxSemitone);
       setQ(nq);
       setState('asking');
@@ -112,7 +115,7 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
         total: s.total + 1,
         streak: firstTry && state !== 'revealed' ? s.streak + 1 : 0,
       }));
-      setTimeout(() => next(), 900);
+      nextTimer.current = window.setTimeout(() => next(), 900);
     } else {
       setState('wrong');
       setWrongAt({ string: lastPlayed.string, semitone: lastPlayed.semitone });
@@ -147,7 +150,7 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
         total: s.total + 1,
         streak: firstTry && state !== 'revealed' ? s.streak + 1 : 0,
       }));
-      setTimeout(() => next(), 900);
+      nextTimer.current = window.setTimeout(() => next(), 900);
     } else {
       setState('wrong');
       setWrongChoice(semitone);
