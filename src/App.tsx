@@ -10,6 +10,12 @@ import {
   StringNo,
   Technique,
   Tuning,
+  STRINGS,
+  MAX_SEMITONE,
+  STRING_NAMES,
+  bunkaLabel,
+  doremiName,
+  westernName,
   getTuning,
   honsuToMidi,
   midiToFreq,
@@ -54,6 +60,7 @@ export default function App() {
   const [technique, setTechnique] = useState<Technique>('bachi');
   const [sawari, setSawari] = useState(true);
   const [guideOpen, setGuideOpen] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
 
   const [pluckCount, setPluckCount] = useState<Record<StringNo, number>>({ 1: 0, 2: 0, 3: 0 });
   const [playedMarks, setPlayedMarks] = useState<Mark[]>([]);
@@ -66,11 +73,23 @@ export default function App() {
   useEffect(() => savePref('shamisen_label', labelMode), [labelMode]);
   useEffect(() => soundEngine.setSawari(sawari), [sawari]);
 
+  // 今の調子・本数で使う音を、空き時間に前もって作っておく
+  useEffect(() => {
+    if (!audioReady) return;
+    const ichi = midiToFreq(honsuToMidi(honsu));
+    const notes = [];
+    for (let semitone = 0; semitone <= MAX_SEMITONE; semitone++) {
+      for (const s of STRINGS) notes.push({ freq: midiToFreq(noteMidi(tuning, honsu, s, semitone)), ichiFreq: ichi });
+    }
+    soundEngine.prewarm(notes);
+  }, [audioReady, tuning, honsu, sawari]);
+
   // 最初のタッチ・クリックで音を出せる状態にする（スマホ対策）
   useEffect(() => {
     const events = ['pointerdown', 'touchend', 'keydown'];
     const unlock = () => {
       soundEngine.init();
+      setAudioReady(true);
       events.forEach((e) => window.removeEventListener(e, unlock));
     };
     events.forEach((e) => window.addEventListener(e, unlock, { passive: true }));
@@ -112,6 +131,10 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       if ((e.target as HTMLElement)?.tagName === 'SELECT') return;
+      if (guideOpen) {
+        if (e.key === 'Escape') setGuideOpen(false);
+        return;
+      }
       const hit = KEY_MAP.get(e.code);
       if (!hit) return;
       e.preventDefault();
@@ -119,7 +142,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handlePlay]);
+  }, [handlePlay, guideOpen]);
 
   const applySettings = useCallback((id: Tuning['id'], h: number) => {
     setTuningId(id);
@@ -128,6 +151,13 @@ export default function App() {
 
   const demoNote = useCallback((s: StringNo, semitone: number, tech: Technique) => sound(s, semitone, tech), [sound]);
   const listen = useCallback((s: StringNo, semitone: number) => sound(s, semitone, 'bachi'), [sound]);
+
+  /** 調弦の確認: 一・二・三の糸の開放弦を順番に鳴らす */
+  const tuneTimers = useRef<number[]>([]);
+  const playTuning = () => {
+    tuneTimers.current.forEach(clearTimeout);
+    tuneTimers.current = STRINGS.map((s, i) => window.setTimeout(() => sound(s, 0, 'bachi'), i * 650));
+  };
 
   const changeMode = (m: Mode) => {
     soundEngine.stopAll();
@@ -162,14 +192,36 @@ export default function App() {
           onMarks={setPanelMarks}
           onApplySettings={applySettings}
           onDemoNote={demoNote}
+          onSuggestTechnique={setTechnique}
         />
       )}
       {mode === 'quiz' && (
         <QuizPanel tuning={tuning} honsu={honsu} lastPlayed={lastPlayed} onMarks={setPanelMarks} onListen={listen} />
       )}
       {mode === 'free' && (
-        <div className="free-tip shrink-0 px-3 py-1 text-[0.7rem] sm:text-xs text-stone-500 bg-stone-950">
-          棹の四角をタップすると、その勘所を押さえて弾いた音が出ます。胴の部分は開放弦（0）。{tuning.name}：{tuning.howTo}
+        <div className="free-tip shrink-0 flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-1.5 bg-stone-950 border-b border-stone-900">
+          <div className="flex items-baseline gap-1.5 min-w-[9.5rem] sm:min-w-[12rem]" aria-live="polite">
+            {lastPlayed ? (
+              <>
+                <span className="font-serif-jp text-amber-200 text-sm">{STRING_NAMES[lastPlayed.string]}</span>
+                <span className="font-mono font-bold text-xl text-amber-300">{bunkaLabel(lastPlayed.semitone)}</span>
+                <span className="text-stone-300 text-sm">{doremiName(lastPlayed.midi)}</span>
+                <span className="text-stone-500 text-xs">{westernName(lastPlayed.midi)}</span>
+              </>
+            ) : (
+              <span className="text-stone-500 text-xs">弾いた音がここに出ます</span>
+            )}
+          </div>
+          <button
+            onClick={playTuning}
+            className="shrink-0 text-xs rounded-lg px-2 py-1 bg-stone-800 border border-stone-700 hover:bg-stone-700"
+            title="一・二・三の糸の開放弦を順番に鳴らします"
+          >
+            ♪ 調弦の音を聴く
+          </button>
+          <span className="hidden sm:inline text-[0.7rem] sm:text-xs text-stone-500 truncate">
+            {tuning.name}：{tuning.howTo}
+          </span>
         </div>
       )}
 

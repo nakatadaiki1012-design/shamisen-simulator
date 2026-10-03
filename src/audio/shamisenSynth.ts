@@ -106,7 +106,7 @@ export function synthesizeShamisen(ctx: BaseAudioContext, o: ShamisenSynthOption
   const sr = ctx.sampleRate;
   const freq = Math.max(50, Math.min(sr / 8, o.frequency));
   const t60 = decayTime(freq, o.technique);
-  const seconds = Math.min(3, t60 * 1.05);
+  const seconds = Math.min(2.6, t60 * 0.9);
   const total = Math.floor(sr * seconds);
 
   const isBachi = o.technique === 'bachi' || o.technique === 'suri';

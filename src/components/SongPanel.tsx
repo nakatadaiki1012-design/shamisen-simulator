@@ -35,11 +35,13 @@ interface Props {
   onMarks: (marks: Mark[]) => void;
   onApplySettings: (tuningId: Tuning['id'], honsu: number) => void;
   onDemoNote: (s: StringNo, semitone: number, technique: Technique) => void;
+  /** 次の音の奏法（スクイなど）を奏法バーに反映する */
+  onSuggestTechnique: (t: Technique) => void;
 }
 
 const TECH_MARK = Object.fromEntries(TECHNIQUES.map((t) => [t.id, t.mark])) as Record<Technique, string>;
 
-export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings, onDemoNote }: Props) {
+export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings, onDemoNote, onSuggestTechnique }: Props) {
   const [songId, setSongId] = useState(SONGS[0].id);
   const song = SONGS.find((s) => s.id === songId)!;
   const [index, setIndex] = useState(0);
@@ -98,6 +100,12 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
       );
     }
   }, [lastPlayed, demo, finished, target, tuning, honsu]);
+
+  // 次の音がスクイなどのときは、奏法を自動で切り替える
+  const targetTech = target?.technique ?? 'bachi';
+  useEffect(() => {
+    if (!demo && !finished) onSuggestTechnique(targetTech);
+  }, [targetTech, demo, finished, onSuggestTechnique]);
 
   // 正解・不正解の色は少しだけ表示
   useEffect(() => {
@@ -172,6 +180,22 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
           </button>
         )}
         <div className="flex-1" />
+        <div className="hidden sm:flex items-center gap-1.5 text-xs text-stone-400" title="進みぐあい">
+          <div className="w-20 h-1.5 rounded-full bg-stone-700 overflow-hidden">
+            <div className="h-full bg-amber-400 transition-all" style={{ width: `${(Math.min(index, song.notes.length) / song.notes.length) * 100}%` }} />
+          </div>
+          {Math.min(index, song.notes.length)}/{song.notes.length}
+        </div>
+        {target && !demo && (
+          <button
+            onClick={() => onDemoNote(target.string, target.semitone, target.technique ?? 'bachi')}
+            className="flex items-center gap-1 text-sm rounded-lg px-2.5 py-1.5 bg-stone-800 border border-stone-700 hover:bg-stone-700"
+            title="次に弾く音を聴く（判定には入りません）"
+          >
+            <Volume2 size={15} />
+            <span className="hidden sm:inline">この音</span>
+          </button>
+        )}
         <button
           onClick={() => {
             if (demo) {

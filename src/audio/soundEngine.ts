@@ -8,6 +8,9 @@ import { StringNo, Technique } from '../data/notation';
 import { synthesizeShamisen } from './shamisenSynth';
 import { unlockWebAudio } from './audioUnlock';
 
+/** 取っておく音の種類の上限（メモリを使いすぎないように） */
+const MAX_CACHED_NOTES = 120;
+
 interface Voice {
   source: AudioBufferSourceNode;
   gain: GainNode;
@@ -19,6 +22,7 @@ class SoundEngine {
   private master: GainNode | null = null;
   private voices = new Map<StringNo, Voice>();
   private cache = new Map<string, AudioBuffer[]>();
+  private prewarmGen = 0;
   sawari = true;
 
   init() {
@@ -55,22 +59,56 @@ class SoundEngine {
     unlockWebAudio(this.ctx);
   }
 
-  private getBuffer(freq: number, technique: Technique, ichiFreq: number): AudioBuffer {
-    const ctx = this.ctx!;
-    const key = `${freq.toFixed(2)}|${technique}|${ichiFreq.toFixed(2)}|${this.sawari}`;
-    let list = this.cache.get(key);
-    if (!list) {
-      list = [];
-      this.cache.set(key, list);
+  private cacheKey(freq: number, technique: Technique, ichiFreq: number) {
+    return `${freq.toFixed(2)}|${technique}|${ichiFreq.toFixed(2)}|${this.sawari}`;
+  }
+
+  private synth(freq: number, technique: Technique, ichiFreq: number) {
+    return synthesizeShamisen(this.ctx!, { frequency: freq, technique, ichiFrequency: ichiFreq, sawari: this.sawari });
+  }
+
+  /** 作った音はしばらく取っておく（使っていない古いものから捨てる） */
+  private remember(key: string, list: AudioBuffer[]) {
+    this.cache.delete(key);
+    this.cache.set(key, list);
+    while (this.cache.size > MAX_CACHED_NOTES) {
+      this.cache.delete(this.cache.keys().next().value!);
     }
-    // 毎回少し違う音になるよう、3 種類まで作ってローテーション
-    if (list.length < 3) {
-      const buf = synthesizeShamisen(ctx, { frequency: freq, technique, ichiFrequency: ichiFreq, sawari: this.sawari });
-      list.push(buf);
-      return buf;
+  }
+
+  private getBuffer(freq: number, technique: Technique, ichiFreq: number): AudioBuffer {
+    const key = this.cacheKey(freq, technique, ichiFreq);
+    const list = this.cache.get(key) ?? [];
+    // 毎回少し違う音になるよう、2 種類まで作って交互に使う
+    if (list.length < 2) {
+      list.push(this.synth(freq, technique, ichiFreq));
+      this.remember(key, list);
+      return list[list.length - 1];
     }
     list.push(list.shift()!);
+    this.remember(key, list);
     return list[0];
+  }
+
+  /**
+   * よく使う音（撥で弾いた全部の勘所）を、空いている時間に少しずつ作っておく。
+   * こうするとタップしてから音が出るまでの遅れが減る。
+   */
+  prewarm(notes: { freq: number; ichiFreq: number }[]) {
+    if (!this.ctx) return;
+    const gen = ++this.prewarmGen;
+    let i = 0;
+    const step = () => {
+      if (gen !== this.prewarmGen || !this.ctx) return;
+      const start = performance.now();
+      while (i < notes.length && performance.now() - start < 8) {
+        const { freq, ichiFreq } = notes[i++];
+        const key = this.cacheKey(freq, 'bachi', ichiFreq);
+        if (!this.cache.has(key)) this.remember(key, [this.synth(freq, 'bachi', ichiFreq)]);
+      }
+      if (i < notes.length) setTimeout(step, 30);
+    };
+    setTimeout(step, 50);
   }
 
   /** 糸の音を止める（短くフェードアウト） */
@@ -121,6 +159,10 @@ class SoundEngine {
 
   setSawari(on: boolean) {
     this.sawari = on;
+  }
+
+  get ready() {
+    return this.ctx !== null;
   }
 }
 

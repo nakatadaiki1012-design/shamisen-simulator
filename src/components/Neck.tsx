@@ -11,6 +11,7 @@ import {
   StringNo,
   STRING_KANJI,
   Tuning,
+  bunkaLabel,
   positionLabel,
 } from '../data/notation';
 
@@ -163,6 +164,8 @@ export function Neck({
                   key={semitone}
                   data-string={s}
                   data-semitone={semitone}
+                  role="button"
+                  aria-label={`${STRING_KANJI[s]}の糸 ${bunkaLabel(semitone)}`}
                   onPointerDown={(e) => handleDown(e, s, semitone)}
                   className={`absolute flex items-center justify-center cursor-pointer group ${
                     vertical ? 'left-0 right-0' : 'top-0 bottom-0'
@@ -215,6 +218,8 @@ export function Neck({
               key={s}
               data-string={s}
               data-semitone={0}
+              role="button"
+              aria-label={`${STRING_KANJI[s]}の糸 開放弦 0`}
               onPointerDown={(e) => handleDown(e, s, 0)}
               className={`relative flex-1 flex items-center justify-center cursor-pointer group ${vertical ? 'h-full' : 'w-full'}`}
             >
