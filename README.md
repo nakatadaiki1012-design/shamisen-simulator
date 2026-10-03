@@ -44,7 +44,16 @@ npm test        # 文化譜の番号や練習曲のデータが正しいか自�
 npm run lint    # 型チェック
 ```
 
-## 公開（Cloudflare Workers）
+## 公開ページ（GitHub Pages）
+
+https://nakatadaiki1012-design.github.io/shamisen-simulator/
+
+`main` に変更が入るたびに、GitHub Actions がアプリをビルドして自動で公開します
+（`.github/workflows/deploy-pages.yml`）。
+リポジトリの Settings → Pages の「Source」は **GitHub Actions** にしてください
+（「Deploy from a branch」だとビルド前のファイルが公開され、画面が真っ白になります）。
+
+## 公開（Cloudflare Workers・別の方法）
 
 箏シミュレーターと同じく Cloudflare で公開できます。
 Cloudflare のダッシュボードで「Workers & Pages → 作成 → GitHub リポジトリをインポート」からこのリポジトリを選び、
