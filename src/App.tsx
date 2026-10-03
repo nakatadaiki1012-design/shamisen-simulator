@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Header, Mode } from './components/Header';
 import { TechniqueBar } from './components/TechniqueBar';
 import { Neck, Mark } from './components/Neck';
@@ -67,14 +67,12 @@ export default function App() {
   const [technique, setTechnique] = useState<Technique>('bachi');
   const [sawari, setSawari] = useState<boolean>(() => loadPref('shamisen_sawari', true));
   const [guideOpen, setGuideOpen] = useState(false);
-  const [audioReady, setAudioReady] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recorded, setRecorded] = useState<Recording | null>(null);
 
   const [pluckCount, setPluckCount] = useState<Record<StringNo, number>>({ 1: 0, 2: 0, 3: 0 });
   const [playedMarks, setPlayedMarks] = useState<Mark[]>([]);
   const [panelMarks, setPanelMarks] = useState<Mark[]>([]);
-  const [sameMarks, setSameMarks] = useState<Mark[]>([]);
   const [quizHidesLabels, setQuizHidesLabels] = useState(false);
   const [showSame, setShowSame] = useState<boolean>(() => loadPref('shamisen_show_same', true));
   const [lastPlayed, setLastPlayed] = useState<PlayedEvent | null>(null);
@@ -89,11 +87,9 @@ export default function App() {
   useEffect(() => savePref('shamisen_show_same', showSame), [showSame]);
 
   // 自由に弾くモード: 最後に弾いた音と「同じ高さの音が出る場所」を表示
-  useEffect(() => {
-    if (mode !== 'free' || !showSame || !lastPlayed) {
-      setSameMarks([]);
-      return;
-    }
+  // （弾くたびに画面の更新が 2 回続かないよう、表示するときに計算する）
+  const sameMarks = useMemo<Mark[]>(() => {
+    if (mode !== 'free' || !showSame || !lastPlayed) return [];
     const marks: Mark[] = [];
     for (const s of STRINGS) {
       const semitone = lastPlayed.midi - noteMidi(tuning, honsu, s, 0);
@@ -101,40 +97,47 @@ export default function App() {
         marks.push({ string: s, semitone, kind: 'same' });
       }
     }
-    setSameMarks(marks);
+    return marks;
   }, [mode, showSame, lastPlayed, tuning, honsu, maxSemitone]);
   useEffect(() => soundEngine.setSawari(sawari), [sawari]);
 
-  // 今の調子・本数で使う音を、空き時間に前もって作っておく
+  // 今の調子・本数で使う全部の勘所（0〜24 × 3 本）を、別スレッドで前もって作っておく。
+  // 画面を開いた直後から作りはじめるので、最初にタップするころには準備ができている
   useEffect(() => {
-    if (!audioReady) return;
+    soundEngine.init();
     const ichi = midiToFreq(honsuToMidi(honsu));
     const notes = [];
-    for (let semitone = 0; semitone <= maxSemitone; semitone++) {
-      for (const s of STRINGS) notes.push({ freq: midiToFreq(noteMidi(tuning, honsu, s, semitone)), ichiFreq: ichi });
+    for (let semitone = 0; semitone <= MAX_SEMITONE; semitone++) {
+      for (const s of STRINGS) {
+        notes.push({ s, freq: midiToFreq(noteMidi(tuning, honsu, s, semitone)), open: semitone === 0 });
+      }
     }
-    soundEngine.prewarm(notes);
-  }, [audioReady, tuning, honsu, sawari, maxSemitone]);
+    soundEngine.prewarm(notes, ichi);
+  }, [tuning, honsu, sawari]);
 
-  // タッチ・クリックのたびに、音を出せる状態か確かめる（スマホ対策）
-  // 一度鳴らせる状態になれば、この確認はほとんど時間がかからない。
-  // iPhone などでスリープ後に音が止められても、次のタッチでまた鳴るようになる。
+  // 画面に触れた「いちばん最初の瞬間」に、止まっている音の仕組みを起こす（スマホ対策）。
+  // capture（先取り）で受け取るので、ほかのどの処理よりも先に動く。
+  // 一度動き出せばほとんど時間はかからず、スリープ後に止められても次のタッチで復帰する。
   useEffect(() => {
-    const events = ['pointerdown', 'touchend', 'keydown'];
-    const unlock = () => {
-      soundEngine.init();
-      setAudioReady(true);
+    const events = ['touchstart', 'pointerdown', 'mousedown', 'keydown'];
+    const wake = () => soundEngine.resume();
+    events.forEach((e) => window.addEventListener(e, wake, { passive: true, capture: true }));
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && soundEngine.ready && !soundEngine.running) soundEngine.resume();
     };
-    events.forEach((e) => window.addEventListener(e, unlock, { passive: true }));
-    return () => events.forEach((e) => window.removeEventListener(e, unlock));
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, wake, { capture: true }));
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
 
   /** 音を鳴らして、棹の上の表示を更新する */
   const sound = useCallback(
-    (s: StringNo, semitone: number, tech: Technique) => {
+    (s: StringNo, semitone: number, tech: Technique, velocity?: number) => {
       const midi = noteMidi(tuning, honsu, s, semitone);
       const ichi = midiToFreq(honsuToMidi(honsu));
-      soundEngine.play(s, midiToFreq(midi), tech, ichi);
+      soundEngine.play(s, midiToFreq(midi), tech, { ichiFreq: ichi, open: semitone === 0, velocity });
       setPluckCount((c) => ({ ...c, [s]: c[s] + 1 }));
       setPlayedMarks((m) => [...m.filter((x) => x.string !== s), { string: s, semitone, kind: 'played' }]);
       return midi;
