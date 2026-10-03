@@ -77,6 +77,8 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   const song = SONGS.find((s) => s.id === songId)!;
   const [index, setIndex] = useState(0);
   const [mistakes, setMistakes] = useState(0);
+  /** 同じ音で続けてまちがえた回数（3回でお手本の音を鳴らす） */
+  const missStreak = useRef(0);
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'ng'; s: StringNo; semitone: number } | null>(null);
   const [message, setMessage] = useState<string>('');
   const [demo, setDemo] = useState(false);
@@ -183,6 +185,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   }, []);
 
   const restart = () => {
+    missStreak.current = 0;
     setLoopCount(0);
     setIndex(0);
     setMistakes(0);
@@ -202,11 +205,20 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
     if (lastPlayed.string === target.string && lastPlayed.semitone === target.semitone) {
       setFeedback({ kind: 'ok', s: lastPlayed.string, semitone: lastPlayed.semitone });
       setMessage('');
+      missStreak.current = 0;
       setIndex(advance(index));
     } else {
       setMistakes((m) => m + 1);
       setFeedback({ kind: 'ng', s: lastPlayed.string, semitone: lastPlayed.semitone });
       const targetMidi = noteMidi(tuning, honsu, target.string, target.semitone);
+      missStreak.current += 1;
+      if (missStreak.current >= 3 && lastPlayed.midi !== targetMidi) {
+        missStreak.current = 0;
+        const t = target;
+        setTimeout(() => onDemoNote(t.string, t.semitone, t.technique ?? 'bachi'), 450);
+        setMessage(`🔊 この音だよ！ 光っている「${STRING_NAMES[t.string]}の${bunkaLabel(t.semitone)}」の音をよく聴いてみよう。`);
+        return;
+      }
       setMessage(
         lastPlayed.midi === targetMidi
           ? `音の高さは合っています！でも楽譜では「${STRING_NAMES[target.string]}の${bunkaLabel(target.semitone)}」です。`
