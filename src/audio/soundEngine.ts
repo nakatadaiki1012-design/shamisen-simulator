@@ -23,6 +23,8 @@ class SoundEngine {
   private voices = new Map<StringNo, Voice>();
   private cache = new Map<string, AudioBuffer[]>();
   private prewarmGen = 0;
+  private unlocked = false;
+  private pendingVariants = new Set<string>();
   sawari = true;
 
   init() {
@@ -56,7 +58,11 @@ class SoundEngine {
       this.ctx = ctx;
       this.master = master;
     }
-    unlockWebAudio(this.ctx);
+    // 音が止められている（スマホのスリープ後など）ときだけ、もう一度鳴らせる状態にする
+    if (!this.unlocked || this.ctx.state !== 'running') {
+      this.unlocked = true;
+      unlockWebAudio(this.ctx);
+    }
   }
 
   private cacheKey(freq: number, technique: Technique, ichiFreq: number) {
@@ -79,15 +85,23 @@ class SoundEngine {
   private getBuffer(freq: number, technique: Technique, ichiFreq: number): AudioBuffer {
     const key = this.cacheKey(freq, technique, ichiFreq);
     const list = this.cache.get(key) ?? [];
-    // 毎回少し違う音になるよう、2 種類まで作って交互に使う
-    if (list.length < 2) {
+    if (list.length === 0) {
+      // はじめての音はその場で作る
       list.push(this.synth(freq, technique, ichiFreq));
-      this.remember(key, list);
-      return list[list.length - 1];
+    } else {
+      list.push(list.shift()!);
     }
-    list.push(list.shift()!);
     this.remember(key, list);
-    return list[0];
+    // 毎回少し違う音になるよう、2 種類目は空いている時間に作っておく（弾いた瞬間の処理を軽く）
+    if (list.length < 2 && !this.pendingVariants.has(key)) {
+      this.pendingVariants.add(key);
+      setTimeout(() => {
+        this.pendingVariants.delete(key);
+        const cur = this.cache.get(key);
+        if (cur && cur.length < 2 && this.ctx) cur.push(this.synth(freq, technique, ichiFreq));
+      }, 400);
+    }
+    return list[list.length - 1];
   }
 
   /**
