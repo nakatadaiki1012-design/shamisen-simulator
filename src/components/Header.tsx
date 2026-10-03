@@ -40,9 +40,9 @@ interface Props {
 export function Header(p: Props) {
   return (
     <header className="app-header shrink-0 flex flex-col gap-1.5 px-2 sm:px-4 py-2 bg-stone-950 border-b border-stone-800">
-      <div className="header-row flex flex-wrap items-center gap-2">
-        <h1 className="flex items-baseline gap-1.5 mr-1">
-          <span className="font-serif-jp text-xl sm:text-2xl font-bold text-amber-100">三味線</span>
+      <div className="header-row flex flex-wrap items-center gap-1.5 sm:gap-2">
+        <h1 className="flex items-baseline gap-1.5 sm:mr-1">
+          <span className="font-serif-jp text-lg min-[400px]:text-xl sm:text-2xl font-bold text-amber-100">三味線</span>
           <span className="text-[0.65rem] text-stone-500 hidden lg:inline">学習用シミュレーター</span>
         </h1>
 
@@ -51,7 +51,7 @@ export function Header(p: Props) {
             <button
               key={m}
               onClick={() => p.setMode(m)}
-              className={`px-2.5 sm:px-3 py-1.5 whitespace-nowrap ${
+              className={`px-2 min-[400px]:px-2.5 sm:px-3 py-1.5 whitespace-nowrap ${
                 p.mode === m ? 'bg-amber-500 text-stone-950 font-bold' : 'bg-stone-900 hover:bg-stone-800 text-stone-300'
               }`}
             >
