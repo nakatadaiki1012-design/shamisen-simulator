@@ -53,6 +53,23 @@ const GREAT_MS = 120;
 const WINDOW_MS = 300;
 const COUNT_IN = 4;
 
+/** テンポ練習の自己ベスト（曲と速さごと）を、この端末に覚えておく */
+const BEST_KEY = 'shamisen_best_scores';
+function loadBest(): Record<string, number> {
+  try {
+    return JSON.parse(localStorage.getItem(BEST_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+function saveBest(all: Record<string, number>) {
+  try {
+    localStorage.setItem(BEST_KEY, JSON.stringify(all));
+  } catch {
+    /* 保存できない環境では何もしない */
+  }
+}
+
 const TECH_MARK = Object.fromEntries(TECHNIQUES.map((t) => [t.id, t.mark])) as Record<Technique, string>;
 
 export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings, onDemoNote, onSuggestTechnique }: Props) {
@@ -74,6 +91,9 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   const [beat, setBeat] = useState(-1);
   const [judges, setJudges] = useState<(Judge | null)[]>([]);
   const [extra, setExtra] = useState(0);
+  const [best, setBest] = useState<Record<string, number>>(loadBest);
+  const [newBest, setNewBest] = useState(false);
+  const bestKey = `${song.id}@${tempo}`;
   const startAt = useRef(0);
   const judgesRef = useRef<(Judge | null)[]>([]);
   const spbMs = 60000 / (song.bpm * tempo);
@@ -274,6 +294,21 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
     const score = Math.max(0, Math.round(((great + good * 0.6) / total) * 100 - extra * 2));
     return { great, good, miss, score };
   }, [judges, extra, song]);
+
+  // テンポ練習が終わったら自己ベストを更新
+  useEffect(() => {
+    if (rhythm !== 'done') return;
+    const prev = loadBest();
+    if ((prev[bestKey] ?? -1) < rhythmResult.score) {
+      const next = { ...prev, [bestKey]: rhythmResult.score };
+      saveBest(next);
+      setBest(next);
+      setNewBest(prev[bestKey] !== undefined);
+    } else {
+      setNewBest(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rhythm]);
 
   // 次の音がスクイなどのときは、奏法を自動で切り替える
   const targetTech = target?.technique ?? 'bachi';
@@ -546,6 +581,9 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
             {rhythmResult.score >= 90 ? '🎉 すばらしい！' : rhythmResult.score >= 60 ? '👍 いい感じ！' : '💪 もう少し！'} 得点 {rhythmResult.score}点
             <span className="font-normal text-stone-300 ml-2">
               ぴったり {rhythmResult.great}・おしい {rhythmResult.good}・ミス {rhythmResult.miss}・よけいな音 {extra}
+            </span>
+            <span className="font-normal text-amber-200 ml-2">
+              {newBest ? '🏆 自己ベスト更新！' : `自己ベスト ${best[bestKey] ?? rhythmResult.score}点`}
             </span>
             <button onClick={startRhythm} className="ml-2 underline text-amber-300">もう一度</button>
             {tempo === 1 && rhythmResult.score < 60 && <span className="font-normal text-stone-400 ml-2">（速さを「ゆっくり」にしてみよう）</span>}
