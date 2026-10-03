@@ -66,7 +66,7 @@ export function GuideModal({ open, onClose }: Props) {
             「#」や「♭」は記号ではなく、<b className="text-stone-200">それ自体がひとつの勘所の名前</b>です。
           </p>
           <div className="overflow-x-auto">
-            <table className="text-center font-mono text-xs border-collapse">
+            <table className="text-center bunka text-xs border-collapse">
               <tbody>
                 <tr>
                   <th className="px-2 py-1 text-left font-sans text-stone-400 whitespace-nowrap">勘所</th>

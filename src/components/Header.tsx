@@ -29,6 +29,8 @@ interface Props {
   setShowLabels: (v: boolean) => void;
   orientation: 'horizontal' | 'vertical';
   setOrientation: (o: 'horizontal' | 'vertical') => void;
+  range: 'octave' | 'full';
+  setRange: (r: 'octave' | 'full') => void;
   onOpenGuide: () => void;
 }
 
@@ -38,7 +40,7 @@ export function Header(p: Props) {
       <div className="header-row flex flex-wrap items-center gap-2">
         <h1 className="flex items-baseline gap-1.5 mr-1">
           <span className="font-serif-jp text-xl sm:text-2xl font-bold text-amber-100">三味線</span>
-          <span className="text-[0.65rem] text-stone-500 hidden sm:inline">学習用シミュレーター</span>
+          <span className="text-[0.65rem] text-stone-500 hidden lg:inline">学習用シミュレーター</span>
         </h1>
 
         <div className="flex rounded-lg overflow-hidden border border-stone-700 text-sm">
@@ -61,13 +63,13 @@ export function Header(p: Props) {
           onClick={p.onOpenGuide}
           className="flex items-center gap-1 text-sm rounded-lg px-2.5 py-1.5 bg-amber-900/40 text-amber-200 border border-amber-800/60 hover:bg-amber-900/60"
         >
-          <BookOpen size={15} /> 三味線のきほん
+          <BookOpen size={15} /> <span className="hidden sm:inline">三味線の</span><span className="hidden min-[400px]:inline">きほん</span>
         </button>
       </div>
 
-      <div className="header-row flex flex-wrap items-center gap-2 text-xs sm:text-sm">
+      <div className="header-row header-settings flex flex-wrap items-center gap-2 text-xs sm:text-sm">
         <label className="flex items-center gap-1">
-          <span className="text-stone-400">調子</span>
+          <span className="text-stone-400 hidden sm:inline">調子</span>
           <select
             value={p.tuning.id}
             onChange={(e) => p.setTuningId(e.target.value as Tuning['id'])}
@@ -81,7 +83,7 @@ export function Header(p: Props) {
           </select>
         </label>
         <label className="flex items-center gap-1">
-          <span className="text-stone-400">本数</span>
+          <span className="text-stone-400 hidden sm:inline">本数</span>
           <select
             value={p.honsu}
             onChange={(e) => p.setHonsu(Number(e.target.value))}
@@ -89,7 +91,7 @@ export function Header(p: Props) {
           >
             {HONSU_LIST.map((h) => (
               <option key={h} value={h}>
-                {honsuName(h)}（一の糸＝{doremiName(honsuToMidi(h))}）
+                {honsuName(h)}（{doremiName(honsuToMidi(h))}）
               </option>
             ))}
           </select>
@@ -113,7 +115,15 @@ export function Header(p: Props) {
           title="棹の上の番号を隠して、覚えたかためせます"
         >
           {p.showLabels ? <Eye size={14} /> : <EyeOff size={14} />}
-          {p.showLabels ? '番号を表示中' : '番号をかくし中'}
+          {p.showLabels ? '番号あり' : '番号なし'}
+        </button>
+
+        <button
+          onClick={() => p.setRange(p.range === 'octave' ? 'full' : 'octave')}
+          className="flex items-center gap-1 rounded-lg px-2 py-1 bg-stone-900 border border-stone-700 text-stone-300 hover:bg-stone-800 whitespace-nowrap"
+          title="棹に表示する勘所の範囲"
+        >
+          範囲 {p.range === 'octave' ? '0〜10' : '0〜20'}
         </button>
 
         <button

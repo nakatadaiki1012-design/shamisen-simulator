@@ -57,6 +57,11 @@ export default function App() {
   const [orientation, setOrientation] = useState<'horizontal' | 'vertical'>(() =>
     window.innerWidth < 768 && window.innerHeight > window.innerWidth ? 'vertical' : 'horizontal'
   );
+  // 縦向き（スマホ）では勘所が小さくなりすぎるので、最初は「10」（1オクターブ）までを表示
+  const [range, setRange] = useState<'octave' | 'full'>(() =>
+    window.innerWidth < 768 && window.innerHeight > window.innerWidth ? 'octave' : 'full'
+  );
+  const maxSemitone = range === 'octave' ? 12 : MAX_SEMITONE;
   const [technique, setTechnique] = useState<Technique>('bachi');
   const [sawari, setSawari] = useState(true);
   const [guideOpen, setGuideOpen] = useState(false);
@@ -78,11 +83,11 @@ export default function App() {
     if (!audioReady) return;
     const ichi = midiToFreq(honsuToMidi(honsu));
     const notes = [];
-    for (let semitone = 0; semitone <= MAX_SEMITONE; semitone++) {
+    for (let semitone = 0; semitone <= maxSemitone; semitone++) {
       for (const s of STRINGS) notes.push({ freq: midiToFreq(noteMidi(tuning, honsu, s, semitone)), ichiFreq: ichi });
     }
     soundEngine.prewarm(notes);
-  }, [audioReady, tuning, honsu, sawari]);
+  }, [audioReady, tuning, honsu, sawari, maxSemitone]);
 
   // 最初のタッチ・クリックで音を出せる状態にする（スマホ対策）
   useEffect(() => {
@@ -179,7 +184,12 @@ export default function App() {
         showLabels={showLabels}
         setShowLabels={setShowLabels}
         orientation={orientation}
-        setOrientation={setOrientation}
+        setOrientation={(o) => {
+          setOrientation(o);
+          if (o === 'vertical' && window.innerHeight < 900) setRange('octave');
+        }}
+        range={range}
+        setRange={setRange}
         onOpenGuide={() => setGuideOpen(true)}
       />
       <TechniqueBar technique={technique} setTechnique={setTechnique} sawari={sawari} setSawari={setSawari} />
@@ -196,7 +206,14 @@ export default function App() {
         />
       )}
       {mode === 'quiz' && (
-        <QuizPanel tuning={tuning} honsu={honsu} lastPlayed={lastPlayed} onMarks={setPanelMarks} onListen={listen} />
+        <QuizPanel
+          tuning={tuning}
+          honsu={honsu}
+          maxSemitone={maxSemitone}
+          lastPlayed={lastPlayed}
+          onMarks={setPanelMarks}
+          onListen={listen}
+        />
       )}
       {mode === 'free' && (
         <div className="free-tip shrink-0 flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-1.5 bg-stone-950 border-b border-stone-900">
@@ -204,7 +221,7 @@ export default function App() {
             {lastPlayed ? (
               <>
                 <span className="font-serif-jp text-amber-200 text-sm">{STRING_NAMES[lastPlayed.string]}</span>
-                <span className="font-mono font-bold text-xl text-amber-300">{bunkaLabel(lastPlayed.semitone)}</span>
+                <span className="bunka font-bold text-xl text-amber-300">{bunkaLabel(lastPlayed.semitone)}</span>
                 <span className="text-stone-300 text-sm">{doremiName(lastPlayed.midi)}</span>
                 <span className="text-stone-500 text-xs">{westernName(lastPlayed.midi)}</span>
               </>
@@ -232,6 +249,7 @@ export default function App() {
           labelMode={labelMode}
           showLabels={showLabels}
           orientation={orientation}
+          maxSemitone={maxSemitone}
           marks={[...playedMarks, ...panelMarks]}
           pluckCount={pluckCount}
           onPlay={handlePlay}

@@ -277,7 +277,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
                 </div>
                 <div className="tab-rows relative w-full">
                   <span
-                    className={`absolute left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-[1.3rem] px-0.5 rounded font-mono font-bold text-sm leading-5 ${
+                    className={`absolute left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-[1.3rem] px-0.5 rounded bunka font-bold text-sm leading-5 ${
                       isCur ? 'bg-amber-500 text-white' : done ? 'bg-[#f7f0e1] text-stone-400' : 'bg-[#f7f0e1] text-stone-900'
                     }`}
                     style={{ top: `calc(var(--tab-row) * ${rowOf[note.string] + 0.5})` }}
@@ -321,7 +321,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
           <span className="text-stone-300 flex items-center gap-1 flex-wrap">
             <Hand size={13} className="text-amber-400" />
             次は <b className="text-amber-300">{STRING_NAMES[target.string]}</b> の
-            <b className="text-amber-300 font-mono text-base">「{bunkaLabel(target.semitone)}」</b>
+            <b className="text-amber-300 bunka text-base">「{bunkaLabel(target.semitone)}」</b>
             <span className="text-stone-500">
               （{doremiName(noteMidi(tuning, honsu, target.string, target.semitone))}
               {target.technique && target.technique !== 'bachi'

@@ -134,3 +134,29 @@
     padding: 4px;
   }
 }
+
+/* スマホ（幅がせまい画面）では、設定と奏法のボタンを1行にして横スクロール */
+@media (max-width: 640px) {
+  .header-settings,
+  .tech-bar {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+  .header-settings::-webkit-scrollbar,
+  .tech-bar::-webkit-scrollbar {
+    display: none;
+  }
+  .header-settings > *,
+  .tech-bar > * {
+    flex-shrink: 0;
+  }
+}
+
+/* 文化譜の番号（♭ や # が小さくならないフォント） */
+.bunka {
+  font-family: 'Plus Jakarta Sans', 'Noto Sans JP', system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}

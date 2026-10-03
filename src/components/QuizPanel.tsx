@@ -26,22 +26,25 @@ interface Question {
 interface Props {
   tuning: Tuning;
   honsu: number;
+  /** 棹に表示されているいちばん高い勘所。これより上は出題しない */
+  maxSemitone: number;
   lastPlayed: PlayedEvent | null;
   onMarks: (marks: Mark[]) => void;
   onListen: (s: StringNo, semitone: number) => void;
 }
 
-function randomQuestion(level: Level, prev: Question | null): Question {
+function randomQuestion(level: Level, prev: Question | null, visibleMax = 24): Question {
+  const max = Math.min(LEVELS[level].max, visibleMax);
   for (;;) {
     const q: Question = {
       string: STRINGS[Math.floor(Math.random() * 3)],
-      semitone: Math.floor(Math.random() * (LEVELS[level].max + 1)),
+      semitone: Math.floor(Math.random() * (max + 1)),
     };
     if (!prev || prev.string !== q.string || prev.semitone !== q.semitone) return q;
   }
 }
 
-export function QuizPanel({ tuning, honsu, lastPlayed, onMarks, onListen }: Props) {
+export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onListen }: Props) {
   const [type, setType] = useState<QuizType>('position');
   const [level, setLevel] = useState<Level>('easy');
   const [q, setQ] = useState<Question>(() => randomQuestion('easy', null));
@@ -53,15 +56,21 @@ export function QuizPanel({ tuning, honsu, lastPlayed, onMarks, onListen }: Prop
 
   const next = useCallback(
     (lv: Level = level, t: QuizType = type) => {
-      const nq = randomQuestion(lv, q);
+      const nq = randomQuestion(lv, q, maxSemitone);
       setQ(nq);
       setState('asking');
       setWrongAt(null);
       triedThisQ.current = false;
       if (t === 'ear') setTimeout(() => onListen(nq.string, nq.semitone), 250);
     },
-    [level, type, q, onListen]
+    [level, type, q, onListen, maxSemitone]
   );
+
+  // 表示範囲をせまくしたら、見えない場所の問題は出し直す
+  useEffect(() => {
+    if (q.semitone > maxSemitone) next();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxSemitone]);
 
   const targetMidi = noteMidi(tuning, honsu, q.string, q.semitone);
 
@@ -135,6 +144,7 @@ export function QuizPanel({ tuning, honsu, lastPlayed, onMarks, onListen }: Prop
           {(Object.keys(LEVELS) as Level[]).map((lv) => (
             <option key={lv} value={lv}>
               {LEVELS[lv].name}
+              {LEVELS[lv].max > maxSemitone ? '※範囲を0〜20に' : ''}
             </option>
           ))}
         </select>
@@ -150,7 +160,7 @@ export function QuizPanel({ tuning, honsu, lastPlayed, onMarks, onListen }: Prop
           <div className="text-base sm:text-lg">
             <span className="font-serif-jp font-bold text-amber-200">{STRING_NAMES[q.string]}</span>
             <span className="text-stone-400"> の </span>
-            <span className="font-mono font-bold text-2xl text-amber-300 bg-stone-800 rounded px-2">
+            <span className="bunka font-bold text-2xl text-amber-300 bg-stone-800 rounded px-2">
               {bunkaLabel(q.semitone)}
             </span>
             <span className="text-stone-400 text-sm"> を弾こう</span>

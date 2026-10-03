@@ -7,7 +7,6 @@
 import React, { useRef } from 'react';
 import {
   LabelMode,
-  MAX_SEMITONE,
   StringNo,
   STRING_KANJI,
   Tuning,
@@ -27,6 +26,8 @@ interface Props {
   labelMode: LabelMode;
   showLabels: boolean;
   orientation: 'horizontal' | 'vertical';
+  /** 棹に表示するいちばん高い勘所（12 = 「10」まで, 24 = 「20」まで） */
+  maxSemitone: number;
   marks: Mark[];
   /** 糸ごとの「弾いた回数」。変わるたびに糸が震えるアニメーション */
   pluckCount: Record<StringNo, number>;
@@ -35,12 +36,14 @@ interface Props {
 
 /** 実際の三味線と同じく、上（高い音）に行くほど勘所の間隔がせまくなる */
 const EDGE_LOW = 0.5;
-const EDGE_HIGH = MAX_SEMITONE + 0.5;
 const fretPos = (x: number) => 1 - Math.pow(2, -x / 12);
-const realPos = (x: number) => (fretPos(x) - fretPos(EDGE_LOW)) / (fretPos(EDGE_HIGH) - fretPos(EDGE_LOW));
-const evenPos = (x: number) => (x - EDGE_LOW) / (EDGE_HIGH - EDGE_LOW);
 // 本物どおりだと高い所がせますぎてタップしにくいので、等間隔と半々に混ぜる
-const pos = (x: number) => (realPos(x) * 0.5 + evenPos(x) * 0.5) * 100;
+function makePos(maxSemitone: number) {
+  const high = maxSemitone + 0.5;
+  const realPos = (x: number) => (fretPos(x) - fretPos(EDGE_LOW)) / (fretPos(high) - fretPos(EDGE_LOW));
+  const evenPos = (x: number) => (x - EDGE_LOW) / (high - EDGE_LOW);
+  return (x: number) => (realPos(x) * 0.5 + evenPos(x) * 0.5) * 100;
+}
 
 /** 目印になる勘所（4 = 4度、10 = オクターブ、20 = 2オクターブ） */
 const LANDMARKS = new Set([5, 12, 24]);
@@ -62,6 +65,7 @@ export function Neck({
   labelMode,
   showLabels,
   orientation,
+  maxSemitone,
   marks,
   pluckCount,
   onPlay,
@@ -106,7 +110,8 @@ export function Neck({
     dragging.current.delete(e.pointerId);
   };
 
-  const cells: number[] = Array.from({ length: MAX_SEMITONE }, (_, i) => i + 1);
+  const cells: number[] = Array.from({ length: maxSemitone }, (_, i) => i + 1);
+  const pos = makePos(maxSemitone);
 
   const renderLabel = (s: StringNo, semitone: number) =>
     positionLabel(labelMode, tuning, honsu, s, semitone);
@@ -190,7 +195,7 @@ export function Neck({
                       mark
                         ? MARK_STYLE[mark]
                         : 'bg-stone-950/55 text-amber-50/90 group-hover:bg-amber-100/30 group-active:bg-amber-100/50'
-                    } ${labelMode === 'bunka' ? 'font-mono text-[0.7rem] sm:text-sm' : 'text-[0.55rem] sm:text-xs'}`}
+                    } ${labelMode === 'bunka' ? 'bunka text-[0.7rem] sm:text-sm' : 'text-[0.55rem] sm:text-xs'}`}
                   >
                     {showLabels || mark ? label : '・'}
                   </span>
@@ -238,7 +243,7 @@ export function Neck({
                 }`}
               >
                 <span className="font-serif-jp font-bold text-sm sm:text-base">{STRING_KANJI[s]}</span>
-                <span className="text-[0.6rem] sm:text-xs font-mono">
+                <span className="text-[0.6rem] sm:text-xs bunka">
                   {showLabels || mark ? renderLabel(s, 0) : '・'}
                 </span>
               </span>
