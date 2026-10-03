@@ -1,0 +1,198 @@
+/**
+ * クイズパネル
+ * - 勘所クイズ: 「二の糸の #」のように出題 → 棹の上のその場所をタップ
+ * - 耳コピクイズ: 音が鳴る → 同じ高さの音をさがしてタップ（どの糸でもOK）
+ */
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Eye, RefreshCw, Volume2 } from 'lucide-react';
+import { STRING_NAMES, StringNo, STRINGS, Tuning, bunkaLabel, noteMidi } from '../data/notation';
+import { Mark } from './Neck';
+import { PlayedEvent } from './SongPanel';
+
+type QuizType = 'position' | 'ear';
+type Level = 'easy' | 'normal' | 'hard';
+
+const LEVELS: Record<Level, { name: string; max: number }> = {
+  easy: { name: 'やさしい（0〜4）', max: 5 },
+  normal: { name: 'ふつう（0〜10）', max: 12 },
+  hard: { name: 'むずかしい（0〜20）', max: 24 },
+};
+
+interface Question {
+  string: StringNo;
+  semitone: number;
+}
+
+interface Props {
+  tuning: Tuning;
+  honsu: number;
+  lastPlayed: PlayedEvent | null;
+  onMarks: (marks: Mark[]) => void;
+  onListen: (s: StringNo, semitone: number) => void;
+}
+
+function randomQuestion(level: Level, prev: Question | null): Question {
+  for (;;) {
+    const q: Question = {
+      string: STRINGS[Math.floor(Math.random() * 3)],
+      semitone: Math.floor(Math.random() * (LEVELS[level].max + 1)),
+    };
+    if (!prev || prev.string !== q.string || prev.semitone !== q.semitone) return q;
+  }
+}
+
+export function QuizPanel({ tuning, honsu, lastPlayed, onMarks, onListen }: Props) {
+  const [type, setType] = useState<QuizType>('position');
+  const [level, setLevel] = useState<Level>('easy');
+  const [q, setQ] = useState<Question>(() => randomQuestion('easy', null));
+  const [score, setScore] = useState({ correct: 0, total: 0, streak: 0 });
+  const [state, setState] = useState<'asking' | 'wrong' | 'correct' | 'revealed'>('asking');
+  const [wrongAt, setWrongAt] = useState<Question | null>(null);
+  const handledId = useRef<number | null>(lastPlayed?.id ?? null);
+  const triedThisQ = useRef(false);
+
+  const next = useCallback(
+    (lv: Level = level, t: QuizType = type) => {
+      const nq = randomQuestion(lv, q);
+      setQ(nq);
+      setState('asking');
+      setWrongAt(null);
+      triedThisQ.current = false;
+      if (t === 'ear') setTimeout(() => onListen(nq.string, nq.semitone), 250);
+    },
+    [level, type, q, onListen]
+  );
+
+  const targetMidi = noteMidi(tuning, honsu, q.string, q.semitone);
+
+  // 判定
+  useEffect(() => {
+    if (!lastPlayed || lastPlayed.id === handledId.current) return;
+    handledId.current = lastPlayed.id;
+    if (state === 'correct') return;
+    const ok =
+      type === 'position'
+        ? lastPlayed.string === q.string && lastPlayed.semitone === q.semitone
+        : lastPlayed.midi === targetMidi;
+    const firstTry = !triedThisQ.current;
+    triedThisQ.current = true;
+    if (ok) {
+      setState('correct');
+      setScore((s) => ({
+        correct: s.correct + (firstTry && state !== 'revealed' ? 1 : 0),
+        total: s.total + 1,
+        streak: firstTry && state !== 'revealed' ? s.streak + 1 : 0,
+      }));
+      setTimeout(() => next(), 900);
+    } else {
+      setState('wrong');
+      setWrongAt({ string: lastPlayed.string, semitone: lastPlayed.semitone });
+      setScore((s) => ({ ...s, streak: 0 }));
+    }
+  }, [lastPlayed, q, type, targetMidi, state, next]);
+
+  // 棹の上の表示
+  useEffect(() => {
+    const marks: Mark[] = [];
+    if (state === 'correct') marks.push({ ...q, kind: 'ok' });
+    if (state === 'revealed') marks.push({ ...q, kind: 'target' });
+    if (state === 'wrong' && wrongAt) marks.push({ ...wrongAt, kind: 'ng' });
+    onMarks(marks);
+  }, [state, q, wrongAt, onMarks]);
+
+  useEffect(() => () => onMarks([]), [onMarks]);
+
+  const changeType = (t: QuizType) => {
+    setType(t);
+    setScore({ correct: 0, total: 0, streak: 0 });
+    next(level, t);
+  };
+  const changeLevel = (lv: Level) => {
+    setLevel(lv);
+    setScore({ correct: 0, total: 0, streak: 0 });
+    next(lv, type);
+  };
+
+  return (
+    <div className="quiz-panel shrink-0 border-b border-stone-800 bg-stone-900/90 px-2 sm:px-4 py-2 flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2 text-sm">
+        <div className="flex rounded-lg overflow-hidden border border-stone-700">
+          {(['position', 'ear'] as QuizType[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => changeType(t)}
+              className={`px-3 py-1.5 ${type === t ? 'bg-amber-500 text-stone-950 font-bold' : 'bg-stone-800 hover:bg-stone-700'}`}
+            >
+              {t === 'position' ? '勘所クイズ' : '耳コピクイズ'}
+            </button>
+          ))}
+        </div>
+        <select
+          value={level}
+          onChange={(e) => changeLevel(e.target.value as Level)}
+          className="bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-xs"
+        >
+          {(Object.keys(LEVELS) as Level[]).map((lv) => (
+            <option key={lv} value={lv}>
+              {LEVELS[lv].name}
+            </option>
+          ))}
+        </select>
+        <div className="flex-1" />
+        <span className="text-xs text-stone-300">
+          正解 <b className="text-emerald-300 text-base">{score.correct}</b> / {score.total} 問
+          {score.streak >= 3 && <span className="ml-2 text-amber-300">🔥 {score.streak} 連続！</span>}
+        </span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+        {type === 'position' ? (
+          <div className="text-base sm:text-lg">
+            <span className="font-serif-jp font-bold text-amber-200">{STRING_NAMES[q.string]}</span>
+            <span className="text-stone-400"> の </span>
+            <span className="font-mono font-bold text-2xl text-amber-300 bg-stone-800 rounded px-2">
+              {bunkaLabel(q.semitone)}
+            </span>
+            <span className="text-stone-400 text-sm"> を弾こう</span>
+            {q.semitone === 0 && <span className="text-stone-500 text-xs ml-2">（0 = どこも押さえない＝胴の部分をタップ）</span>}
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-sm sm:text-base">
+            <button
+              onClick={() => onListen(q.string, q.semitone)}
+              className="flex items-center gap-1 bg-sky-500 text-stone-950 font-bold rounded-lg px-3 py-1.5"
+            >
+              <Volume2 size={16} /> 音を聴く
+            </button>
+            <span className="text-stone-300">同じ高さの音をさがしてタップ！（どの糸でもOK）</span>
+          </div>
+        )}
+
+        <div className="flex-1" />
+        {state === 'correct' && <span className="text-emerald-300 font-bold">⭕ 正解！</span>}
+        {state === 'wrong' && <span className="text-rose-300 font-bold">✖ おしい！もう一度</span>}
+        {state === 'revealed' && (
+          <span className="text-amber-300 text-sm">
+            答え: {STRING_NAMES[q.string]}の「{bunkaLabel(q.semitone)}」（光っている場所）
+          </span>
+        )}
+        <button
+          onClick={() => {
+            setState('revealed');
+            setScore((s) => ({ ...s, streak: 0 }));
+            onListen(q.string, q.semitone);
+          }}
+          className="flex items-center gap-1 text-xs rounded-lg px-2 py-1.5 bg-stone-800 border border-stone-700 hover:bg-stone-700"
+        >
+          <Eye size={14} /> 答えを見る
+        </button>
+        <button
+          onClick={() => next()}
+          className="flex items-center gap-1 text-xs rounded-lg px-2 py-1.5 bg-stone-800 border border-stone-700 hover:bg-stone-700"
+        >
+          <RefreshCw size={14} /> 次の問題
+        </button>
+      </div>
+    </div>
+  );
+}
