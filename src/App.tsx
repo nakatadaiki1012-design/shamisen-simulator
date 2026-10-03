@@ -126,7 +126,7 @@ export default function App() {
     (s: StringNo, semitone: number, slide: boolean) => {
       const midi = sound(s, semitone, slide ? 'suri' : technique);
       eventId.current += 1;
-      setLastPlayed({ id: eventId.current, string: s, semitone, midi });
+      setLastPlayed({ id: eventId.current, time: performance.now(), string: s, semitone, midi });
     },
     [sound, technique]
   );

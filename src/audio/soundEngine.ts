@@ -152,7 +152,50 @@ class SoundEngine {
     this.voices.set(s, { source, gain, freq });
   }
 
+  private clicks: OscillatorNode[] = [];
+
+  /**
+   * メトロノームの「カッ」という音を予約する。
+   * delays: 今から何秒後に鳴らすか / accent: 強拍（高い音）
+   */
+  scheduleClicks(beats: { delay: number; accent: boolean }[]) {
+    this.init();
+    const ctx = this.ctx!;
+    this.stopClicks();
+    const now = ctx.currentTime;
+    for (const b of beats) {
+      const t = now + b.delay;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.frequency.value = b.accent ? 1760 : 1175;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(b.accent ? 0.35 : 0.22, t + 0.002);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+      osc.connect(g);
+      g.connect(this.master!);
+      osc.start(t);
+      osc.stop(t + 0.06);
+      this.clicks.push(osc);
+      osc.onended = () => {
+        this.clicks = this.clicks.filter((c) => c !== osc);
+        g.disconnect();
+      };
+    }
+  }
+
+  stopClicks() {
+    for (const c of this.clicks) {
+      try {
+        c.stop();
+      } catch {
+        /* まだ始まっていない／止まっている */
+      }
+    }
+    this.clicks = [];
+  }
+
   stopAll() {
+    this.stopClicks();
     if (!this.ctx) return;
     for (const s of [...this.voices.keys()]) this.release(s, this.ctx.currentTime);
   }

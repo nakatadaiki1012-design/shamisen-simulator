@@ -17,7 +17,7 @@ import {
 export interface Mark {
   string: StringNo;
   semitone: number;
-  kind: 'target' | 'demo' | 'ok' | 'ng' | 'played';
+  kind: 'target' | 'demo' | 'ok' | 'ng' | 'played' | 'next';
 }
 
 interface Props {
@@ -56,8 +56,9 @@ const MARK_STYLE: Record<Mark['kind'], string> = {
   ok: 'bg-emerald-400 text-stone-950 ring-4 ring-emerald-300/70 font-bold',
   ng: 'bg-rose-500 text-white ring-4 ring-rose-400/70 font-bold',
   played: 'bg-stone-100/90 text-stone-950 font-bold',
+  next: 'bg-amber-200/20 text-amber-100 outline-2 outline-dashed outline-amber-300/70',
 };
-const MARK_PRIORITY: Mark['kind'][] = ['ng', 'ok', 'target', 'demo', 'played'];
+const MARK_PRIORITY: Mark['kind'][] = ['ng', 'ok', 'target', 'demo', 'played', 'next'];
 
 export function Neck({
   tuning,

@@ -113,11 +113,16 @@ export function synthesizeShamisen(ctx: BaseAudioContext, o: ShamisenSynthOption
   const isLeftHand = o.technique === 'hajiki' || o.technique === 'uchi';
 
   // 1. 弦の振動（撥は駒の近く＝弦長の約 7% を硬く打つ → 明るく鋭い音）
-  const raw = pluckString(sr, freq, seconds, t60, {
-    damping: isLeftHand ? 0.42 : o.technique === 'sukui' ? 0.3 : 0.22,
-    hardness: isLeftHand ? 0.35 : o.technique === 'sukui' ? 0.7 : 0.95,
-    pluckRatio: isLeftHand ? 0.3 : 0.07,
-  });
+  // ハジキ: 指先で糸をはじく（やや明るい）/ 打ち指: 指で糸を叩きつける（丸くこもった音）
+  const shape =
+    o.technique === 'hajiki'
+      ? { damping: 0.36, hardness: 0.6, pluckRatio: 0.18 }
+      : o.technique === 'uchi'
+        ? { damping: 0.45, hardness: 0.2, pluckRatio: 0.4 }
+        : o.technique === 'sukui'
+          ? { damping: 0.3, hardness: 0.7, pluckRatio: 0.07 }
+          : { damping: 0.22, hardness: 0.95, pluckRatio: 0.07 };
+  const raw = pluckString(sr, freq, seconds, t60, shape);
   normalize(raw);
 
   // 2. サワリの共鳴: 一の糸と同じ音名（オクターブ）なら強く、5度の関係なら少し
@@ -147,7 +152,9 @@ export function synthesizeShamisen(ctx: BaseAudioContext, o: ShamisenSynthOption
   const thumpBp = makeBiquad('bp', 170, 2, sr);
 
   const buzzAmt = o.sawari ? (isLeftHand ? 0.25 : 0.55) : 0;
-  const skinAmt = o.technique === 'bachi' ? 0.55 : o.technique === 'suri' ? 0.25 : o.technique === 'sukui' ? 0.08 : 0;
+  const skinAmt = o.technique === 'bachi' ? 0.38 : o.technique === 'suri' ? 0.2 : o.technique === 'sukui' ? 0.06 : 0;
+  // 打ち指は、指が棹に当たる「トン」という小さな音
+  const fingerTap = o.technique === 'uchi' ? 0.12 : 0;
   const skinLen = Math.floor(sr * 0.045);
   const thumpLen = Math.floor(sr * 0.09);
   const fadeLen = Math.floor(sr * 0.05);
@@ -174,6 +181,11 @@ export function synthesizeShamisen(ctx: BaseAudioContext, o: ShamisenSynthOption
         const env = Math.pow(1 - i / thumpLen, 2);
         y += thumpBp(Math.random() * 2 - 1) * env * skinAmt * 6;
       }
+    }
+
+    if (fingerTap > 0 && i < thumpLen) {
+      const env = Math.pow(1 - i / thumpLen, 3);
+      y += thumpBp(Math.random() * 2 - 1) * env * fingerTap * 6;
     }
 
     const fromEnd = total - 1 - i;

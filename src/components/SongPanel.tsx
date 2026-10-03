@@ -5,7 +5,8 @@
  * - 「お手本を聴く」: テンポを選んで自動演奏
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pause, Play, RotateCcw, Hand, Volume2 } from 'lucide-react';
+import { Pause, Play, RotateCcw, Hand, Volume2, Timer, Square } from 'lucide-react';
+import { soundEngine } from '../audio/soundEngine';
 import { SONGS, Song, SongNote } from '../data/songs';
 import {
   STRING_NAMES,
@@ -23,6 +24,8 @@ import { Mark } from './Neck';
 
 export interface PlayedEvent {
   id: number;
+  /** 弾いた瞬間の時刻（performance.now()） */
+  time: number;
   string: StringNo;
   semitone: number;
   midi: number;
@@ -39,6 +42,17 @@ interface Props {
   onSuggestTechnique: (t: Technique) => void;
 }
 
+type Judge = 'great' | 'good' | 'miss';
+const JUDGE_STYLE: Record<Judge, string> = {
+  great: 'bg-emerald-500 text-white',
+  good: 'bg-amber-400 text-stone-900',
+  miss: 'bg-rose-500 text-white',
+};
+/** 判定のはば（ミリ秒）: これより近ければ「ぴったり」、WINDOW 以内なら「おしい」 */
+const GREAT_MS = 120;
+const WINDOW_MS = 300;
+const COUNT_IN = 4;
+
 const TECH_MARK = Object.fromEntries(TECHNIQUES.map((t) => [t.id, t.mark])) as Record<Technique, string>;
 
 export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings, onDemoNote, onSuggestTechnique }: Props) {
@@ -51,13 +65,56 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   const [demo, setDemo] = useState(false);
   const [tempo, setTempo] = useState(1);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // テンポに合わせて弾くモード
+  const [rhythm, setRhythm] = useState<null | 'count' | 'play' | 'done'>(null);
+  const [countdown, setCountdown] = useState(0);
+  const [judges, setJudges] = useState<(Judge | null)[]>([]);
+  const [extra, setExtra] = useState(0);
+  const startAt = useRef(0);
+  const judgesRef = useRef<(Judge | null)[]>([]);
+  const spbMs = 60000 / (song.bpm * tempo);
+  const noteTimes = useMemo(() => {
+    let t = 0;
+    return song.notes.map((n) => {
+      const at = t;
+      t += n.beats;
+      return at;
+    });
+  }, [song]);
+  const totalBeats = song.notes.reduce((a, n) => a + n.beats, 0);
   const handledId = useRef<number | null>(lastPlayed?.id ?? null);
 
   const finished = index >= song.notes.length;
   const target: SongNote | undefined = song.notes[index];
   const settingsMatch = tuning.id === song.tuningId && honsu === song.honsu;
 
+  const stopRhythm = () => {
+    soundEngine.stopClicks();
+    setRhythm(null);
+  };
+
+  const startRhythm = () => {
+    setDemo(false);
+    restart();
+    const empty = song.notes.map(() => null);
+    judgesRef.current = empty;
+    setJudges(empty);
+    setExtra(0);
+    const lead = 0.15;
+    // カウント 4 拍 + 曲の拍すべてにメトロノーム
+    const beats = [];
+    for (let b = 0; b < COUNT_IN + Math.ceil(totalBeats); b++) {
+      beats.push({ delay: lead + (b * spbMs) / 1000, accent: b < COUNT_IN ? b === 0 : (b - COUNT_IN) % 4 === 0 });
+    }
+    soundEngine.scheduleClicks(beats);
+    startAt.current = performance.now() + lead * 1000 + COUNT_IN * spbMs;
+    setCountdown(COUNT_IN);
+    setRhythm('count');
+  };
+
   const selectSong = (s: Song) => {
+    stopRhythm();
     setSongId(s.id);
     setIndex(0);
     setMistakes(0);
@@ -84,6 +141,10 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   useEffect(() => {
     if (!lastPlayed || lastPlayed.id === handledId.current) return;
     handledId.current = lastPlayed.id;
+    if (rhythm === 'count' || rhythm === 'play') {
+      judgeRhythm(lastPlayed);
+      return;
+    }
     if (demo || finished || !target) return;
     if (lastPlayed.string === target.string && lastPlayed.semitone === target.semitone) {
       setFeedback({ kind: 'ok', s: lastPlayed.string, semitone: lastPlayed.semitone });
@@ -99,7 +160,86 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
           : `ちがう音です。光っている「${STRING_NAMES[target.string]}の${bunkaLabel(target.semitone)}」を弾こう。`
       );
     }
-  }, [lastPlayed, demo, finished, target, tuning, honsu]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastPlayed, demo, finished, target, tuning, honsu, rhythm]);
+
+  /**
+   * テンポモードの判定: 同じ勘所で、まだ判定していない音のうち
+   * 判定のはばに入っている「いちばん早い音」として数える（少し遅れても前の音に当たる）
+   */
+  function judgeRhythm(ev: PlayedEvent) {
+    const t = ev.time - startAt.current;
+    let best = -1;
+    let bestDt = Infinity;
+    song.notes.forEach((n, i) => {
+      if (best >= 0 || judgesRef.current[i] || n.string !== ev.string || n.semitone !== ev.semitone) return;
+      const dt = Math.abs(t - noteTimes[i] * spbMs);
+      if (dt <= WINDOW_MS) {
+        best = i;
+        bestDt = dt;
+      }
+    });
+    if (best < 0) {
+      setExtra((x) => x + 1);
+      setFeedback({ kind: 'ng', s: ev.string, semitone: ev.semitone });
+      return;
+    }
+    const next = [...judgesRef.current];
+    next[best] = bestDt <= GREAT_MS ? 'great' : 'good';
+    judgesRef.current = next;
+    setJudges(next);
+    setFeedback({ kind: 'ok', s: ev.string, semitone: ev.semitone });
+  }
+
+  // テンポモードの進行（画面の更新ごとに、今どの音かを計算）
+  useEffect(() => {
+    if (rhythm !== 'count' && rhythm !== 'play') return;
+    let raf = 0;
+    const tick = () => {
+      const t = performance.now() - startAt.current;
+      if (t < 0) {
+        setCountdown(Math.ceil(-t / spbMs));
+      } else {
+        setRhythm('play');
+        let cur = 0;
+        while (cur + 1 < noteTimes.length && noteTimes[cur + 1] * spbMs <= t) cur++;
+        setIndex(cur);
+        // 時間が過ぎても弾かれなかった音は「ミス」
+        let changed = false;
+        const next = [...judgesRef.current];
+        noteTimes.forEach((nt, i) => {
+          if (!next[i] && t > nt * spbMs + WINDOW_MS) {
+            next[i] = 'miss';
+            changed = true;
+          }
+        });
+        if (changed) {
+          judgesRef.current = next;
+          setJudges(next);
+        }
+        if (t > totalBeats * spbMs + WINDOW_MS) {
+          soundEngine.stopClicks();
+          setRhythm('done');
+          setIndex(song.notes.length);
+          return;
+        }
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [rhythm, spbMs, noteTimes, totalBeats, song]);
+
+  useEffect(() => () => soundEngine.stopClicks(), []);
+
+  const rhythmResult = useMemo(() => {
+    const great = judges.filter((j) => j === 'great').length;
+    const good = judges.filter((j) => j === 'good').length;
+    const miss = judges.filter((j) => j === 'miss').length;
+    const total = song.notes.length || 1;
+    const score = Math.max(0, Math.round(((great + good * 0.6) / total) * 100 - extra * 2));
+    return { great, good, miss, score };
+  }, [judges, extra, song]);
 
   // 次の音がスクイなどのときは、奏法を自動で切り替える
   const targetTech = target?.technique ?? 'bachi';
@@ -133,10 +273,15 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
     const marks: Mark[] = [];
     if (target && !finished) {
       marks.push({ string: target.string, semitone: target.semitone, kind: demo ? 'demo' : 'target' });
+      // テンポモードでは次の音も薄く表示（先読みの練習）
+      const after = song.notes[index + 1];
+      if (rhythm === 'play' && after && (after.string !== target.string || after.semitone !== target.semitone)) {
+        marks.push({ string: after.string, semitone: after.semitone, kind: 'next' });
+      }
     }
     if (feedback) marks.push({ string: feedback.s, semitone: feedback.semitone, kind: feedback.kind });
     onMarks(marks);
-  }, [target, finished, demo, feedback, onMarks]);
+  }, [target, finished, demo, feedback, onMarks, rhythm, index, song]);
 
   useEffect(() => () => onMarks([]), [onMarks]);
 
@@ -186,7 +331,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
           </div>
           {Math.min(index, song.notes.length)}/{song.notes.length}
         </div>
-        {target && !demo && (
+        {target && !demo && !rhythm && (
           <button
             onClick={() => onDemoNote(target.string, target.semitone, target.technique ?? 'bachi')}
             className="flex items-center gap-1 text-sm rounded-lg px-2.5 py-1.5 bg-stone-800 border border-stone-700 hover:bg-stone-700"
@@ -201,6 +346,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
             if (demo) {
               setDemo(false);
             } else {
+              stopRhythm();
               if (finished) restart();
               setDemo(true);
             }
@@ -212,11 +358,24 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
           {demo ? <Pause size={15} /> : <Volume2 size={15} />}
           {demo ? '止める' : 'お手本を聴く'}
         </button>
+        <button
+          onClick={() => (rhythm === 'count' || rhythm === 'play' ? stopRhythm() : startRhythm())}
+          className={`flex items-center gap-1 text-sm rounded-lg px-3 py-1.5 border ${
+            rhythm === 'count' || rhythm === 'play'
+              ? 'bg-emerald-500 text-stone-950 border-emerald-400'
+              : 'bg-stone-800 border-stone-700 hover:bg-stone-700'
+          }`}
+          title="メトロノームに合わせて弾き、タイミングを判定します"
+        >
+          {rhythm === 'count' || rhythm === 'play' ? <Square size={14} /> : <Timer size={15} />}
+          {rhythm === 'count' || rhythm === 'play' ? '止める' : 'テンポに合わせて弾く'}
+        </button>
         <select
           value={tempo}
           onChange={(e) => setTempo(Number(e.target.value))}
+          disabled={rhythm === 'count' || rhythm === 'play'}
           className="bg-stone-800 border border-stone-700 rounded-lg px-1.5 py-1.5 text-xs"
-          title="お手本の速さ"
+          title="お手本・テンポ練習の速さ"
         >
           <option value={0.5}>ゆっくり</option>
           <option value={0.75}>少しゆっくり</option>
@@ -225,6 +384,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
         <button
           onClick={() => {
             setDemo(false);
+            stopRhythm();
             restart();
           }}
           className="flex items-center gap-1 text-sm rounded-lg px-3 py-1.5 bg-stone-800 border border-stone-700 hover:bg-stone-700"
@@ -262,7 +422,9 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
                 key={i}
                 data-idx={i}
                 onClick={() => {
+                  if (rhythm === 'count' || rhythm === 'play') return;
                   setDemo(false);
+                  setRhythm(null);
                   setIndex(i);
                   setMessage('');
                 }}
@@ -278,7 +440,13 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
                 <div className="tab-rows relative w-full">
                   <span
                     className={`absolute left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-[1.3rem] px-0.5 rounded bunka font-bold text-sm leading-5 ${
-                      isCur ? 'bg-amber-500 text-white' : done ? 'bg-[#f7f0e1] text-stone-400' : 'bg-[#f7f0e1] text-stone-900'
+                      rhythm && judges[i]
+                        ? JUDGE_STYLE[judges[i]!]
+                        : isCur
+                          ? 'bg-amber-500 text-white'
+                          : done
+                            ? 'bg-[#f7f0e1] text-stone-400'
+                            : 'bg-[#f7f0e1] text-stone-900'
                     }`}
                     style={{ top: `calc(var(--tab-row) * ${rowOf[note.string] + 0.5})` }}
                   >
@@ -306,7 +474,27 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
 
       {/* 下の段: 説明・メッセージ */}
       <div className="text-xs sm:text-sm min-h-[1.25rem]">
-        {finished ? (
+        {rhythm === 'count' ? (
+          <span className="text-emerald-300 font-bold text-base">カウント… {countdown}</span>
+        ) : rhythm === 'play' ? (
+          <span className="text-emerald-300">
+            ♪ 演奏中 — ぴったり {rhythmResult.great}・おしい {rhythmResult.good}・ミス {rhythmResult.miss}
+            {target && (
+              <span className="text-stone-400 ml-2">
+                今: {STRING_NAMES[target.string]}の<b className="bunka text-amber-300">「{bunkaLabel(target.semitone)}」</b>
+              </span>
+            )}
+          </span>
+        ) : rhythm === 'done' ? (
+          <span className="text-emerald-300 font-bold">
+            {rhythmResult.score >= 90 ? '🎉 すばらしい！' : rhythmResult.score >= 60 ? '👍 いい感じ！' : '💪 もう少し！'} 得点 {rhythmResult.score}点
+            <span className="font-normal text-stone-300 ml-2">
+              ぴったり {rhythmResult.great}・おしい {rhythmResult.good}・ミス {rhythmResult.miss}・よけいな音 {extra}
+            </span>
+            <button onClick={startRhythm} className="ml-2 underline text-amber-300">もう一度</button>
+            {tempo === 1 && rhythmResult.score < 60 && <span className="font-normal text-stone-400 ml-2">（速さを「ゆっくり」にしてみよう）</span>}
+          </span>
+        ) : finished ? (
           <span className="text-emerald-300 font-bold">
             🎉 さいごまで弾けました！ まちがい {mistakes} 回（正確さ {accuracy}%）
             <button onClick={restart} className="ml-2 underline text-amber-300">もう一度</button>
