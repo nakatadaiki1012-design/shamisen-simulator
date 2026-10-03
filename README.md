@@ -38,6 +38,8 @@
 npm install
 npm run dev     # http://localhost:3000 で確認
 npm run build   # dist/ に公開用ファイルができる
+npm test        # 文化譜の番号や練習曲のデータが正しいか自動チェック
+npm run lint    # 型チェック
 ```
 
 ## 公開（Cloudflare Workers）
