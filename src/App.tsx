@@ -285,6 +285,14 @@ export default function App() {
           pluckCount={pluckCount}
           onPlay={handlePlay}
         />
+        {mode === 'free' && !lastPlayed && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-20">
+            <div className="animate-bounce rounded-2xl bg-stone-950/85 border border-amber-500/60 px-4 py-3 text-center shadow-xl">
+              <div className="text-amber-200 font-bold text-sm sm:text-base">👆 棹の上の四角をタップして弾いてみよう</div>
+              <div className="text-stone-400 text-xs mt-1">胴（白い部分）をタップすると開放弦「0」</div>
+            </div>
+          </div>
+        )}
       </main>
 
       <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />

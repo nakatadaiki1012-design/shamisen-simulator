@@ -71,6 +71,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   // テンポに合わせて弾くモード
   const [rhythm, setRhythm] = useState<null | 'count' | 'play' | 'done'>(null);
   const [countdown, setCountdown] = useState(0);
+  const [beat, setBeat] = useState(-1);
   const [judges, setJudges] = useState<(Judge | null)[]>([]);
   const [extra, setExtra] = useState(0);
   const startAt = useRef(0);
@@ -233,6 +234,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
         setCountdown(Math.ceil(-t / spbMs));
       } else {
         setRhythm('play');
+        setBeat(Math.floor(t / spbMs));
         let cur = 0;
         while (cur + 1 < noteTimes.length && noteTimes[cur + 1] * spbMs <= t) cur++;
         setIndex(cur);
@@ -526,6 +528,12 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
           <span className="text-emerald-300 font-bold text-base">カウント… {countdown}</span>
         ) : rhythm === 'play' ? (
           <span className="text-emerald-300">
+            <span
+              key={beat}
+              className={`inline-block w-3 h-3 rounded-full mr-1.5 align-middle animate-[beatFlash_0.35s_ease-out] ${
+                beat % 4 === 0 ? 'bg-amber-300' : 'bg-emerald-300'
+              }`}
+            />
             ♪ 演奏中 — ぴったり {rhythmResult.great}・おしい {rhythmResult.good}・ミス {rhythmResult.miss}
             {target && (
               <span className="text-stone-400 ml-2">
