@@ -3,13 +3,14 @@
  * - 勘所クイズ: 「二の糸の #」のように出題 → 棹の上のその場所をタップ
  * - 耳コピクイズ: 音が鳴る → 同じ高さの音をさがしてタップ（どの糸でもOK）
  */
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Eye, RefreshCw, Volume2 } from 'lucide-react';
 import { STRING_NAMES, StringNo, STRINGS, Tuning, bunkaLabel, noteMidi } from '../data/notation';
 import { Mark } from './Neck';
 import { PlayedEvent } from './SongPanel';
 
-type QuizType = 'position' | 'ear';
+type QuizType = 'position' | 'name' | 'ear';
+const QUIZ_NAMES: Record<QuizType, string> = { position: '勘所クイズ', name: '番号あて', ear: '耳コピクイズ' };
 type Level = 'easy' | 'normal' | 'hard';
 
 const LEVELS: Record<Level, { name: string; max: number }> = {
@@ -31,6 +32,8 @@ interface Props {
   lastPlayed: PlayedEvent | null;
   onMarks: (marks: Mark[]) => void;
   onListen: (s: StringNo, semitone: number) => void;
+  /** 番号あてクイズのあいだは、棹の番号をかくす */
+  onHideLabels: (hide: boolean) => void;
 }
 
 function randomQuestion(level: Level, prev: Question | null, visibleMax = 24): Question {
@@ -44,13 +47,29 @@ function randomQuestion(level: Level, prev: Question | null, visibleMax = 24): Q
   }
 }
 
-export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onListen }: Props) {
+/** 番号あてクイズの選択肢: 正解と、近くの勘所の番号を 3 つ */
+function makeChoices(answer: number, max: number): number[] {
+  const pool = new Set<number>([answer]);
+  const near = [-2, -1, 1, 2, 3, -3, 4, -4, 5, -5].map((d) => answer + d).filter((x) => x >= 0 && x <= max);
+  for (const x of near.sort(() => Math.random() - 0.5)) {
+    if (pool.size >= 4) break;
+    pool.add(x);
+  }
+  return [...pool].sort((a, b) => a - b);
+}
+
+export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onListen, onHideLabels }: Props) {
   const [type, setType] = useState<QuizType>('position');
   const [level, setLevel] = useState<Level>('easy');
   const [q, setQ] = useState<Question>(() => randomQuestion('easy', null));
   const [score, setScore] = useState({ correct: 0, total: 0, streak: 0 });
   const [state, setState] = useState<'asking' | 'wrong' | 'correct' | 'revealed'>('asking');
   const [wrongAt, setWrongAt] = useState<Question | null>(null);
+  const [wrongChoice, setWrongChoice] = useState<number | null>(null);
+  const choices = useMemo(
+    () => makeChoices(q.semitone, Math.min(LEVELS[level].max, maxSemitone)),
+    [q, level, maxSemitone]
+  );
   const handledId = useRef<number | null>(lastPlayed?.id ?? null);
   const triedThisQ = useRef(false);
 
@@ -60,6 +79,7 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
       setQ(nq);
       setState('asking');
       setWrongAt(null);
+      setWrongChoice(null);
       triedThisQ.current = false;
       if (t === 'ear') setTimeout(() => onListen(nq.string, nq.semitone), 250);
     },
@@ -78,7 +98,7 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
   useEffect(() => {
     if (!lastPlayed || lastPlayed.id === handledId.current) return;
     handledId.current = lastPlayed.id;
-    if (state === 'correct') return;
+    if (state === 'correct' || type === 'name') return;
     const ok =
       type === 'position'
         ? lastPlayed.string === q.string && lastPlayed.semitone === q.semitone
@@ -105,9 +125,35 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
     const marks: Mark[] = [];
     if (state === 'correct') marks.push({ ...q, kind: 'ok' });
     if (state === 'revealed') marks.push({ ...q, kind: 'target' });
+    if (type === 'name' && state !== 'correct' && state !== 'revealed') marks.push({ ...q, kind: 'demo' });
     if (state === 'wrong' && wrongAt) marks.push({ ...wrongAt, kind: 'ng' });
     onMarks(marks);
-  }, [state, q, wrongAt, onMarks]);
+  }, [state, q, wrongAt, onMarks, type]);
+
+  useEffect(() => {
+    onHideLabels(type === 'name');
+    return () => onHideLabels(false);
+  }, [type, onHideLabels]);
+
+  const answerName = (semitone: number) => {
+    if (state === 'correct') return;
+    const firstTry = !triedThisQ.current;
+    triedThisQ.current = true;
+    onListen(q.string, semitone);
+    if (semitone === q.semitone) {
+      setState('correct');
+      setScore((s) => ({
+        correct: s.correct + (firstTry && state !== 'revealed' ? 1 : 0),
+        total: s.total + 1,
+        streak: firstTry && state !== 'revealed' ? s.streak + 1 : 0,
+      }));
+      setTimeout(() => next(), 900);
+    } else {
+      setState('wrong');
+      setWrongChoice(semitone);
+      setScore((s) => ({ ...s, streak: 0 }));
+    }
+  };
 
   useEffect(() => () => onMarks([]), [onMarks]);
 
@@ -126,13 +172,13 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
     <div className="quiz-panel shrink-0 border-b border-stone-800 bg-stone-900/90 px-2 sm:px-4 py-2 flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <div className="flex rounded-lg overflow-hidden border border-stone-700">
-          {(['position', 'ear'] as QuizType[]).map((t) => (
+          {(['position', 'name', 'ear'] as QuizType[]).map((t) => (
             <button
               key={t}
               onClick={() => changeType(t)}
               className={`px-3 py-1.5 ${type === t ? 'bg-amber-500 text-stone-950 font-bold' : 'bg-stone-800 hover:bg-stone-700'}`}
             >
-              {t === 'position' ? '勘所クイズ' : '耳コピクイズ'}
+              {QUIZ_NAMES[t]}
             </button>
           ))}
         </div>
@@ -165,6 +211,29 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
             </span>
             <span className="text-stone-400 text-sm"> を弾こう</span>
             {q.semitone === 0 && <span className="text-stone-500 text-xs ml-2">（0 = どこも押さえない＝胴の部分をタップ）</span>}
+          </div>
+        ) : type === 'name' ? (
+          <div className="flex flex-wrap items-center gap-2 text-sm sm:text-base">
+            <span className="text-stone-300">
+              青く光っている <b className="font-serif-jp text-sky-300">{STRING_NAMES[q.string]}</b> の場所は、文化譜で何番？
+            </span>
+            <div className="flex gap-1.5">
+              {choices.map((c) => (
+                <button
+                  key={c}
+                  onClick={() => answerName(c)}
+                  className={`bunka min-w-[2.6rem] text-lg rounded-lg px-2 py-1 border ${
+                    state === 'correct' && c === q.semitone
+                      ? 'bg-emerald-500 border-emerald-300 text-white'
+                      : wrongChoice === c
+                        ? 'bg-rose-500 border-rose-300 text-white'
+                        : 'bg-stone-800 border-stone-600 text-amber-200 hover:bg-stone-700'
+                  }`}
+                >
+                  {bunkaLabel(c)}
+                </button>
+              ))}
+            </div>
           </div>
         ) : (
           <div className="flex items-center gap-2 text-sm sm:text-base">

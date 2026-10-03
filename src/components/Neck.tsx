@@ -17,7 +17,7 @@ import {
 export interface Mark {
   string: StringNo;
   semitone: number;
-  kind: 'target' | 'demo' | 'ok' | 'ng' | 'played' | 'next';
+  kind: 'target' | 'demo' | 'ok' | 'ng' | 'played' | 'next' | 'same';
 }
 
 interface Props {
@@ -25,6 +25,8 @@ interface Props {
   honsu: number;
   labelMode: LabelMode;
   showLabels: boolean;
+  /** false のときは、光っている場所でも番号を出さない（番号あてクイズ用） */
+  revealMarked?: boolean;
   orientation: 'horizontal' | 'vertical';
   /** 棹に表示するいちばん高い勘所（12 = 「10」まで, 24 = 「20」まで） */
   maxSemitone: number;
@@ -57,14 +59,16 @@ const MARK_STYLE: Record<Mark['kind'], string> = {
   ng: 'bg-rose-500 text-white ring-4 ring-rose-400/70 font-bold',
   played: 'bg-stone-100/90 text-stone-950 font-bold',
   next: 'bg-amber-200/20 text-amber-100 outline-2 outline-dashed outline-amber-300/70',
+  same: 'bg-sky-400/25 text-sky-100 outline-2 outline-dashed outline-sky-300/80',
 };
-const MARK_PRIORITY: Mark['kind'][] = ['ng', 'ok', 'target', 'demo', 'played', 'next'];
+const MARK_PRIORITY: Mark['kind'][] = ['ng', 'ok', 'target', 'demo', 'played', 'next', 'same'];
 
 export function Neck({
   tuning,
   honsu,
   labelMode,
   showLabels,
+  revealMarked = true,
   orientation,
   maxSemitone,
   marks,
@@ -202,7 +206,7 @@ export function Neck({
                         : 'text-[0.55rem] sm:text-xs'
                     }`}
                   >
-                    {showLabels || mark ? label : '・'}
+                    {showLabels || (mark && revealMarked) ? label : mark ? '?' : '・'}
                   </span>
                 </div>
               );
@@ -249,7 +253,7 @@ export function Neck({
               >
                 <span className="font-serif-jp font-bold text-sm sm:text-base">{STRING_KANJI[s]}</span>
                 <span className="text-[0.6rem] sm:text-xs bunka">
-                  {showLabels || mark ? renderLabel(s, 0) : '・'}
+                  {showLabels || (mark && revealMarked) ? renderLabel(s, 0) : mark ? '?' : '・'}
                 </span>
               </span>
             </div>

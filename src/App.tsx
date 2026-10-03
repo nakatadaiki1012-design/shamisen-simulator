@@ -71,6 +71,9 @@ export default function App() {
   const [pluckCount, setPluckCount] = useState<Record<StringNo, number>>({ 1: 0, 2: 0, 3: 0 });
   const [playedMarks, setPlayedMarks] = useState<Mark[]>([]);
   const [panelMarks, setPanelMarks] = useState<Mark[]>([]);
+  const [sameMarks, setSameMarks] = useState<Mark[]>([]);
+  const [quizHidesLabels, setQuizHidesLabels] = useState(false);
+  const [showSame, setShowSame] = useState<boolean>(() => loadPref('shamisen_show_same', true));
   const [lastPlayed, setLastPlayed] = useState<PlayedEvent | null>(null);
   const eventId = useRef(0);
 
@@ -80,6 +83,23 @@ export default function App() {
   useEffect(() => savePref('shamisen_show_labels', showLabels), [showLabels]);
   useEffect(() => savePref('shamisen_sawari', sawari), [sawari]);
   useEffect(() => savePref('shamisen_range', range), [range]);
+  useEffect(() => savePref('shamisen_show_same', showSame), [showSame]);
+
+  // 自由に弾くモード: 最後に弾いた音と「同じ高さの音が出る場所」を表示
+  useEffect(() => {
+    if (mode !== 'free' || !showSame || !lastPlayed) {
+      setSameMarks([]);
+      return;
+    }
+    const marks: Mark[] = [];
+    for (const s of STRINGS) {
+      const semitone = lastPlayed.midi - noteMidi(tuning, honsu, s, 0);
+      if (semitone >= 0 && semitone <= maxSemitone && !(s === lastPlayed.string && semitone === lastPlayed.semitone)) {
+        marks.push({ string: s, semitone, kind: 'same' });
+      }
+    }
+    setSameMarks(marks);
+  }, [mode, showSame, lastPlayed, tuning, honsu, maxSemitone]);
   useEffect(() => soundEngine.setSawari(sawari), [sawari]);
 
   // 今の調子・本数で使う音を、空き時間に前もって作っておく
@@ -217,6 +237,7 @@ export default function App() {
           lastPlayed={lastPlayed}
           onMarks={setPanelMarks}
           onListen={listen}
+          onHideLabels={setQuizHidesLabels}
         />
       )}
       {mode === 'free' && (
@@ -240,6 +261,10 @@ export default function App() {
           >
             ♪ 調弦の音を聴く
           </button>
+          <label className="shrink-0 flex items-center gap-1 text-xs text-stone-400 cursor-pointer" title="弾いた音と同じ高さが出る、ほかの糸の場所を水色の点線で表示します">
+            <input type="checkbox" checked={showSame} onChange={(e) => setShowSame(e.target.checked)} className="accent-sky-500" />
+            同じ音の場所
+          </label>
           <span className="hidden sm:inline text-[0.7rem] sm:text-xs text-stone-500 truncate">
             {tuning.name}：{tuning.howTo}
           </span>
@@ -251,10 +276,11 @@ export default function App() {
           tuning={tuning}
           honsu={honsu}
           labelMode={labelMode}
-          showLabels={showLabels}
+          showLabels={showLabels && !quizHidesLabels}
+          revealMarked={!quizHidesLabels}
           orientation={orientation}
           maxSemitone={maxSemitone}
-          marks={[...playedMarks, ...panelMarks]}
+          marks={[...playedMarks, ...panelMarks, ...sameMarks]}
           pluckCount={pluckCount}
           onPlay={handlePlay}
         />
