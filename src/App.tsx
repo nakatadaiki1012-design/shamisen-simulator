@@ -5,6 +5,7 @@ import { Neck, Mark } from './components/Neck';
 import { SongPanel, PlayedEvent } from './components/SongPanel';
 import { QuizPanel } from './components/QuizPanel';
 import { GuideModal } from './components/GuideModal';
+import { Recording, RecordingDialog } from './components/RecordingDialog';
 import {
   LabelMode,
   StringNo,
@@ -67,6 +68,8 @@ export default function App() {
   const [sawari, setSawari] = useState<boolean>(() => loadPref('shamisen_sawari', true));
   const [guideOpen, setGuideOpen] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recorded, setRecorded] = useState<Recording | null>(null);
 
   const [pluckCount, setPluckCount] = useState<Record<StringNo, number>>({ 1: 0, 2: 0, 3: 0 });
   const [playedMarks, setPlayedMarks] = useState<Mark[]>([]);
@@ -189,6 +192,23 @@ export default function App() {
     tuneTimers.current = STRINGS.map((s, i) => window.setTimeout(() => sound(s, 0, 'bachi'), i * 650));
   };
 
+  const toggleRecording = async () => {
+    if (!recording) {
+      if (recorded) URL.revokeObjectURL(recorded.url);
+      setRecorded(null);
+      try {
+        soundEngine.startRecording();
+        setRecording(true);
+      } catch {
+        alert('このブラウザでは録音できませんでした。');
+      }
+      return;
+    }
+    setRecording(false);
+    const result = await soundEngine.stopRecording();
+    if (result) setRecorded(result);
+  };
+
   const changeMode = (m: Mode) => {
     soundEngine.stopAll();
     setPanelMarks([]);
@@ -216,6 +236,9 @@ export default function App() {
         range={range}
         setRange={setRange}
         onOpenGuide={() => setGuideOpen(true)}
+        recording={recording}
+        canRecord={soundEngine.canRecord}
+        onToggleRecording={toggleRecording}
       />
       <TechniqueBar technique={technique} setTechnique={setTechnique} sawari={sawari} setSawari={setSawari} />
 
@@ -296,6 +319,19 @@ export default function App() {
       </main>
 
       <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
+      {recorded && (
+        <RecordingDialog
+          recording={recorded}
+          onClose={() => {
+            URL.revokeObjectURL(recorded.url);
+            setRecorded(null);
+          }}
+          onDiscard={() => {
+            URL.revokeObjectURL(recorded.url);
+            setRecorded(null);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -21,6 +21,11 @@ interface Voice {
 class SoundEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
+  private output: AudioNode | null = null;
+  private recorder: MediaRecorder | null = null;
+  private recordDest: MediaStreamAudioDestinationNode | null = null;
+  private recordChunks: Blob[] = [];
+  private recordStart = 0;
   private voices = new Map<StringNo, Voice>();
   private cache = new Map<string, AudioBuffer[]>();
   private prewarmGen = 0;
@@ -111,6 +116,7 @@ class SoundEngine {
 
       this.ctx = ctx;
       this.master = master;
+      this.output = comp;
     }
     // 音が止められている（スマホのスリープ後など）ときだけ、もう一度鳴らせる状態にする
     if (!this.unlocked || this.ctx.state !== 'running') {
@@ -262,6 +268,47 @@ class SoundEngine {
       }
     }
     this.clicks = [];
+  }
+
+  /** このブラウザで録音できるか */
+  get canRecord() {
+    return typeof MediaRecorder !== 'undefined' && typeof AudioContext !== 'undefined';
+  }
+
+  /** 弾いた音の録音を始める */
+  startRecording() {
+    this.init();
+    const ctx = this.ctx!;
+    if (!this.recordDest) {
+      this.recordDest = ctx.createMediaStreamDestination();
+      this.output!.connect(this.recordDest);
+    }
+    const types = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/ogg;codecs=opus', 'audio/webm'];
+    const mimeType = types.find((t) => MediaRecorder.isTypeSupported?.(t));
+    this.recordChunks = [];
+    this.recorder = new MediaRecorder(this.recordDest.stream, mimeType ? { mimeType } : undefined);
+    this.recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) this.recordChunks.push(e.data);
+    };
+    this.recorder.start();
+    this.recordStart = performance.now();
+  }
+
+  /** 録音を止めて、聴いたりダウンロードしたりできる形で返す */
+  stopRecording(): Promise<{ url: string; ext: string; seconds: number } | null> {
+    const rec = this.recorder;
+    if (!rec) return Promise.resolve(null);
+    this.recorder = null;
+    const seconds = (performance.now() - this.recordStart) / 1000;
+    return new Promise((resolve) => {
+      rec.onstop = () => {
+        const type = rec.mimeType || 'audio/webm';
+        const blob = new Blob(this.recordChunks, { type });
+        const ext = type.includes('mp4') ? 'm4a' : type.includes('ogg') ? 'ogg' : 'webm';
+        resolve(blob.size > 0 ? { url: URL.createObjectURL(blob), ext, seconds } : null);
+      };
+      rec.stop();
+    });
   }
 
   stopAll() {

@@ -32,6 +32,9 @@ interface Props {
   range: 'octave' | 'full';
   setRange: (r: 'octave' | 'full') => void;
   onOpenGuide: () => void;
+  recording: boolean;
+  canRecord: boolean;
+  onToggleRecording: () => void;
 }
 
 export function Header(p: Props) {
@@ -58,6 +61,21 @@ export function Header(p: Props) {
         </div>
 
         <div className="flex-1" />
+
+        {p.canRecord && (
+          <button
+            onClick={p.onToggleRecording}
+            className={`flex items-center gap-1 text-sm rounded-lg px-2.5 py-1.5 border ${
+              p.recording
+                ? 'bg-rose-600 border-rose-400 text-white animate-pulse'
+                : 'bg-stone-900 border-stone-700 text-stone-300 hover:bg-stone-800'
+            }`}
+            title="弾いた音を録音して、聴きなおしたり保存したりできます"
+          >
+            <span className={`w-2.5 h-2.5 rounded-full ${p.recording ? 'bg-white' : 'bg-rose-500'}`} />
+            <span className="hidden min-[400px]:inline">{p.recording ? '録音を止める' : '録音'}</span>
+          </button>
+        )}
 
         <button
           onClick={p.onOpenGuide}
