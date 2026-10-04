@@ -197,7 +197,25 @@ export function GuideModal({ open, onClose, onListenTuning, onListenPosition }: 
           <ul className="list-disc pl-5 text-stone-400 space-y-1 mt-2">
             <li>曲の練習の「🖨 印刷」で、その曲の文化譜を配布プリントにできます。</li>
             <li>「録音」で弾いた音をファイルに保存できるので、演奏の提出にも使えます。</li>
-            <li>学習の記録（✓・★・クイズの最高記録）は、その端末のブラウザに保存されます（ほかの端末には引きつがれません）。</li>
+            <li>
+              学習の記録（✓・★・クイズの最高記録）は、その端末のブラウザに保存されます（ほかの端末には引きつがれません）。
+              共用の端末では、授業の終わりに
+              <button
+                onClick={() => {
+                  if (!window.confirm('この端末の学習の記録（曲の ✓・★、テンポ練習の自己ベスト、クイズの最高記録）を消します。よろしいですか？')) return;
+                  try {
+                    ['shamisen_progress', 'shamisen_best_scores', 'shamisen_quiz_best', 'shamisen_welcomed'].forEach((k) => localStorage.removeItem(k));
+                  } catch {
+                    /* 保存できない環境では何もしない */
+                  }
+                  window.location.reload();
+                }}
+                className="mx-1 rounded-lg border border-rose-500/60 bg-rose-900/40 px-2 py-0.5 text-rose-200 text-xs"
+              >
+                学習の記録を消す
+              </button>
+              こともできます。
+            </li>
             <li>教室ではイヤホンの使用がおすすめです。実物の三味線の調弦には「🎚 チューナー」が使えます。</li>
           </ul>
         </section>
