@@ -448,6 +448,7 @@ export default function App() {
           onDemoNote={demoNote}
           onSuggestTechnique={setTechnique}
           orientation={orientation}
+          playMode={playMode}
         />
       )}
       {mode === 'quiz' && (

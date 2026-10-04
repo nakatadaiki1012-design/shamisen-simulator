@@ -43,6 +43,8 @@ interface Props {
   onSuggestTechnique: (t: Technique) => void;
   /** 棹の向き（まちがえたときに「どちらへ動かすか」を言うため） */
   orientation: 'horizontal' | 'vertical';
+  /** 演奏のしかた（両手モードでは撥の向きを案内する） */
+  playMode: 'one' | 'two';
 }
 
 type Judge = 'great' | 'good' | 'miss';
@@ -96,7 +98,7 @@ function saveBest(all: Record<string, number>) {
 
 const TECH_MARK = Object.fromEntries(TECHNIQUES.map((t) => [t.id, t.mark])) as Record<Technique, string>;
 
-export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings, onDemoNote, onSuggestTechnique, orientation }: Props) {
+export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings, onDemoNote, onSuggestTechnique, orientation, playMode }: Props) {
   const [songId, setSongId] = useState(SONGS[0].id);
   const song = SONGS.find((s) => s.id === songId)!;
   const [index, setIndex] = useState(0);
@@ -773,6 +775,12 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
                 : ''}
               ）
             </span>
+            {playMode === 'two' && (
+              <span className="text-sky-300">
+                {target.semitone > 0 ? '押さえて、' : '押さえずに、'}
+                {target.technique === 'sukui' ? '撥ゾーンで下から上へ（掬い）' : '撥ゾーンで糸を打つ（叩き）'}
+              </span>
+            )}
             <span className="song-desc text-stone-400 ml-2 hidden md:inline">{song.description}</span>
           </span>
         ) : null}
