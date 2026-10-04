@@ -120,9 +120,13 @@
   .tech-bar {
     flex-wrap: nowrap;
     overflow-x: auto;
+    scrollbar-width: none;
     padding-top: 2px;
     padding-bottom: 2px;
     touch-action: pan-x;
+  }
+  .tech-bar > * {
+    flex-shrink: 0;
   }
   .free-tip {
     padding-top: 1px;

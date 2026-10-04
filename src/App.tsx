@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Header, Mode } from './components/Header';
 import { TechniqueBar } from './components/TechniqueBar';
-import { Neck, Mark } from './components/Neck';
+import { Neck, Mark, PlayMode } from './components/Neck';
+import { useMidi } from './hooks/useMidi';
 import { SongPanel, PlayedEvent } from './components/SongPanel';
 import { QuizPanel } from './components/QuizPanel';
 import { GuideModal } from './components/GuideModal';
@@ -78,6 +79,13 @@ export default function App() {
   const [lastPlayed, setLastPlayed] = useState<PlayedEvent | null>(null);
   const eventId = useRef(0);
 
+  // 演奏のしかた: ワンハンド（タップで発音）／両手（左手で押さえて右手の撥で打つ）
+  const [playMode, setPlayMode] = useState<PlayMode>(() => loadPref('shamisen_play_mode', 'one'));
+  const [haptic, setHaptic] = useState<boolean>(() => loadPref('shamisen_haptic', true));
+  const [pressed, setPressed] = useState<Record<StringNo, number>>({ 1: 0, 2: 0, 3: 0 });
+  const pressedRef = useRef<Record<StringNo, number>>({ 1: 0, 2: 0, 3: 0 });
+  const fingersRef = useRef(new Map<number, { s: StringNo; semitone: number }>());
+
   const tuning = getTuning(tuningId);
 
   useEffect(() => savePref('shamisen_label', labelMode), [labelMode]);
@@ -85,6 +93,22 @@ export default function App() {
   useEffect(() => savePref('shamisen_sawari', sawari), [sawari]);
   useEffect(() => savePref('shamisen_range', range), [range]);
   useEffect(() => savePref('shamisen_show_same', showSame), [showSame]);
+  useEffect(() => savePref('shamisen_play_mode', playMode), [playMode]);
+  useEffect(() => savePref('shamisen_haptic', haptic), [haptic]);
+
+  /** 触った手ごたえ（対応しているスマホだけ、ほんの少し震える） */
+  const buzz = useCallback(
+    (ms: number) => {
+      if (haptic && typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+        try {
+          navigator.vibrate(ms);
+        } catch {
+          /* 震えない端末では何もしない */
+        }
+      }
+    },
+    [haptic]
+  );
 
   // 自由に弾くモード: 最後に弾いた音と「同じ高さの音が出る場所」を表示
   // （弾くたびに画面の更新が 2 回続かないよう、表示するときに計算する）
@@ -152,15 +176,104 @@ export default function App() {
     return () => clearTimeout(t);
   }, [playedMarks]);
 
-  /** 自分で弾いたとき（判定にも使う） */
-  const handlePlay = useCallback(
-    (s: StringNo, semitone: number, slide: boolean) => {
-      const midi = sound(s, semitone, slide ? 'suri' : technique);
+  /** 自分で弾いたとき（曲の練習・クイズの判定にも使う） */
+  const playNote = useCallback(
+    (s: StringNo, semitone: number, tech: Technique, velocity?: number) => {
+      const midi = sound(s, semitone, tech, velocity);
       eventId.current += 1;
       setLastPlayed({ id: eventId.current, time: performance.now(), string: s, semitone, midi });
     },
-    [sound, technique]
+    [sound]
   );
+
+  /** ワンハンド: タップした勘所をそのまま弾く */
+  const handlePlay = useCallback(
+    (s: StringNo, semitone: number, slide: boolean) => {
+      playNote(s, semitone, slide ? 'suri' : technique);
+      buzz(slide ? 4 : 8);
+    },
+    [playNote, technique, buzz]
+  );
+
+  // ---------- 両手モード ----------
+
+  /** 押さえている指から、糸ごとの勘所（いちばん胴に近い指）を決める */
+  const updatePressed = () => {
+    const next: Record<StringNo, number> = { 1: 0, 2: 0, 3: 0 };
+    for (const f of fingersRef.current.values()) next[f.s] = Math.max(next[f.s], f.semitone);
+    pressedRef.current = next;
+    setPressed(next);
+    return next;
+  };
+
+  /** 左手で押さえた・指をすべらせた */
+  const handleFinger = useCallback(
+    (pointerId: number, s: StringNo, semitone: number, moved: boolean) => {
+      const before = pressedRef.current[s];
+      fingersRef.current.set(pointerId, { s, semitone });
+      const now = updatePressed()[s];
+      buzz(moved ? 3 : 6);
+      if (now === before || !soundEngine.isRinging(s)) return;
+      // 糸が鳴っているうちに指を動かした: すべらせたらスリ、選んだ奏法が打ち指なら打ち指
+      if (moved && before > 0) playNote(s, now, 'suri', 0.6);
+      else if (!moved && technique === 'uchi' && now > before) playNote(s, now, 'uchi', 0.6);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [buzz, playNote, technique]
+  );
+
+  /** 左手の指を離した（選んだ奏法がハジキなら、離した瞬間にはじく） */
+  const handleFingerUp = useCallback(
+    (pointerId: number) => {
+      const f = fingersRef.current.get(pointerId);
+      if (!f) return;
+      fingersRef.current.delete(pointerId);
+      const before = pressedRef.current[f.s];
+      const now = updatePressed()[f.s];
+      if (technique === 'hajiki' && now < before && soundEngine.isRinging(f.s)) playNote(f.s, now, 'hajiki', 0.6);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [playNote, technique]
+  );
+
+  /** 右手の撥で打った（下へ＝叩き、上へ＝掬い） */
+  const handleStrike = useCallback(
+    (s: StringNo, stroke: 'down' | 'up', velocity: number) => {
+      playNote(s, pressedRef.current[s], stroke === 'up' ? 'sukui' : 'bachi', velocity);
+      buzz(10);
+    },
+    [playNote, buzz]
+  );
+
+  // 演奏のしかたを切り替えたら、押さえている指を全部はなす
+  useEffect(() => {
+    fingersRef.current.clear();
+    updatePressed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playMode]);
+
+  // ---------- MIDI 入力 ----------
+
+  /** MIDI のノート番号を、弾きやすい糸と勘所に割りあてる（いちばん上駒に近い場所） */
+  const midiToPosition = useCallback(
+    (note: number): { s: StringNo; semitone: number } => {
+      const opens = STRINGS.map((st) => ({ s: st, open: noteMidi(tuning, honsu, st, 0) }));
+      let n = note;
+      while (n < opens[0].open) n += 12; // 一の糸より低い音はオクターブ上げる
+      while (n > opens[2].open + MAX_SEMITONE) n -= 12;
+      let best = { s: 1 as StringNo, semitone: n - opens[0].open };
+      for (const o of opens) {
+        const k = n - o.open;
+        if (k >= 0 && k <= MAX_SEMITONE && k < best.semitone) best = { s: o.s, semitone: k };
+      }
+      return best;
+    },
+    [tuning, honsu]
+  );
+  const midi = useMidi((note, velocity) => {
+    const p = midiToPosition(note);
+    playNote(p.s, p.semitone, technique === 'suri' ? 'bachi' : technique, velocity);
+  });
 
   // キーボード演奏
   useEffect(() => {
@@ -243,7 +356,17 @@ export default function App() {
         canRecord={soundEngine.canRecord}
         onToggleRecording={toggleRecording}
       />
-      <TechniqueBar technique={technique} setTechnique={setTechnique} sawari={sawari} setSawari={setSawari} />
+      <TechniqueBar
+        technique={technique}
+        setTechnique={setTechnique}
+        sawari={sawari}
+        setSawari={setSawari}
+        playMode={playMode}
+        setPlayMode={setPlayMode}
+        haptic={haptic}
+        setHaptic={setHaptic}
+        midi={midi}
+      />
 
       {mode === 'song' && (
         <SongPanel
@@ -307,15 +430,36 @@ export default function App() {
           revealMarked={!quizHidesLabels}
           orientation={orientation}
           maxSemitone={maxSemitone}
-          marks={[...playedMarks, ...panelMarks, ...sameMarks]}
+          marks={[
+            ...playedMarks,
+            ...panelMarks,
+            ...sameMarks,
+            ...(playMode === 'two'
+              ? STRINGS.filter((st) => pressed[st] > 0).map((st) => ({ string: st, semitone: pressed[st], kind: 'pressed' as const }))
+              : []),
+          ]}
           pluckCount={pluckCount}
+          playMode={playMode}
+          pressed={pressed}
           onPlay={handlePlay}
+          onFinger={handleFinger}
+          onFingerUp={handleFingerUp}
+          onStrike={handleStrike}
         />
         {mode === 'free' && !lastPlayed && (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-20">
             <div className="animate-bounce rounded-2xl bg-stone-950/85 border border-amber-500/60 px-4 py-3 text-center shadow-xl">
-              <div className="text-amber-200 font-bold text-sm sm:text-base">👆 棹の上の四角をタップして弾いてみよう</div>
-              <div className="text-stone-400 text-xs mt-1">胴（白い部分）をタップすると開放弦「0」</div>
+              {playMode === 'two' ? (
+                <>
+                  <div className="text-amber-200 font-bold text-sm sm:text-base">✋ 左手で棹を押さえ、{orientation === 'vertical' ? '下' : '右'}の撥ゾーンで糸を打とう</div>
+                  <div className="text-stone-400 text-xs mt-1">糸をタップ／上から下へ横切る＝叩き、下から上へ＝掬い（押さえなければ開放弦）</div>
+                </>
+              ) : (
+                <>
+                  <div className="text-amber-200 font-bold text-sm sm:text-base">👆 棹の上の四角をタップして弾いてみよう</div>
+                  <div className="text-stone-400 text-xs mt-1">胴（白い部分）をタップすると開放弦「0」</div>
+                </>
+              )}
             </div>
           </div>
         )}
