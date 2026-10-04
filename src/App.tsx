@@ -537,7 +537,12 @@ export default function App() {
         )}
       </main>
 
-      <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} onListenTuning={listenTuning} />
+      <GuideModal
+        open={guideOpen}
+        onClose={() => setGuideOpen(false)}
+        onListenTuning={listenTuning}
+        onListenPosition={(k) => sound(1, k, 'bachi')}
+      />
       <TunerModal open={tunerOpen} onClose={() => setTunerOpen(false)} tuning={tuning} honsu={honsu} onPluck={(st) => sound(st, 0, 'bachi')} />
       {recorded && (
         <RecordingDialog

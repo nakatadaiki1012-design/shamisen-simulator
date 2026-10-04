@@ -9,6 +9,8 @@ interface Props {
   onClose: () => void;
   /** その調子の一・二・三の糸の開放弦を順に鳴らす（今の設定は変えない） */
   onListenTuning: (id: Tuning['id']) => void;
+  /** 一の糸のその勘所を鳴らす */
+  onListenPosition: (semitone: number) => void;
 }
 
 const PARTS = [
@@ -26,7 +28,7 @@ const KEY_ROWS = [
   ['一の糸', '1 2 3 4 5 6 7 8 9 0 - ^'],
 ];
 
-export function GuideModal({ open, onClose, onListenTuning }: Props) {
+export function GuideModal({ open, onClose, onListenTuning, onListenPosition }: Props) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-2 sm:p-6" onClick={onClose}>
@@ -76,8 +78,14 @@ export function GuideModal({ open, onClose, onListenTuning }: Props) {
                 <tr>
                   <th className="px-2 py-1 text-left font-sans text-stone-400 whitespace-nowrap">勘所</th>
                   {Array.from({ length: 13 }, (_, i) => (
-                    <td key={i} className="px-2 py-1 border border-stone-700 font-bold text-amber-200">
-                      {bunkaLabel(i)}
+                    <td key={i} className="p-0 border border-stone-700">
+                      <button
+                        onClick={() => onListenPosition(i)}
+                        className="w-full px-2 py-1 font-bold text-amber-200 hover:bg-stone-800 active:bg-amber-900"
+                        aria-label={`一の糸の${bunkaLabel(i)}を聴く`}
+                      >
+                        {bunkaLabel(i)}
+                      </button>
                     </td>
                   ))}
                 </tr>
@@ -94,6 +102,7 @@ export function GuideModal({ open, onClose, onListenTuning }: Props) {
           </div>
           <p className="text-stone-400 text-xs mt-1">
             ※「+1」は半音1つ分。「10」で開放弦のちょうど1オクターブ上になります。その上は 11・12・13・1#・14…と続きます。
+            番号を押すと、一の糸のその勘所の音を聴けます（0 から順に押すと、半音ずつ上がるのがわかります）。
           </p>
         </section>
 
