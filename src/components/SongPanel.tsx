@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, RotateCcw, Hand, Volume2, Timer, Square } from 'lucide-react';
 import { soundEngine } from '../audio/soundEngine';
+import { openPrintableScore } from '../print';
 import { SONGS, Song, SongNote } from '../data/songs';
 import {
   STRING_NAMES,
@@ -545,6 +546,15 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
         >
           <RotateCcw size={15} />
           <span className="hidden sm:inline">最初から</span>
+        </button>
+        <button
+          onClick={() => {
+            if (!openPrintableScore(song)) setMessage('印刷用のページを開けませんでした。ブラウザのポップアップを許可してください。');
+          }}
+          className="song-meta flex items-center gap-1 text-sm rounded-lg px-3 py-1.5 bg-stone-800 border border-stone-700 hover:bg-stone-700"
+          title="この曲の文化譜を印刷用のページで開きます（配布プリントに）"
+        >
+          🖨<span className="hidden sm:inline">印刷</span>
         </button>
       </div>
 
