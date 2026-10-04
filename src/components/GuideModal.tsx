@@ -165,6 +165,21 @@ export function GuideModal({ open, onClose }: Props) {
             </tbody>
           </table>
         </section>
+        <section className="mt-5">
+          <h3 className="text-amber-300 font-bold mb-1.5">⑦ 授業で使うとき（先生向け）</h3>
+          <ol className="list-decimal pl-5 text-stone-400 space-y-1">
+            <li><b className="text-stone-200">1時間目</b>: 「三味線のきほん」で各部の名前と3本の糸 → 自由に弾く（開放弦）→ 曲の練習「1. はじめの一歩」。</li>
+            <li><b className="text-stone-200">2時間目</b>: 文化譜の読み方（0・1・2・3・#・4…）→「2. 音階れんしゅう」→ クイズ「勘所クイズ（やさしい）」。</li>
+            <li><b className="text-stone-200">3時間目</b>: 「かえるの合唱」「メリーさんのひつじ」など入門曲 →「テンポ練習」で得点に挑戦。</li>
+            <li><b className="text-stone-200">4時間目</b>: 「さくらさくら」（日本の音階・スクイ）→ 二上り・三下りの音階で調子のちがいを聴きくらべる。</li>
+          </ol>
+          <ul className="list-disc pl-5 text-stone-400 space-y-1 mt-2">
+            <li>曲の練習の「🖨 印刷」で、その曲の文化譜を配布プリントにできます。</li>
+            <li>「録音」で弾いた音をファイルに保存できるので、演奏の提出にも使えます。</li>
+            <li>学習の記録（✓・★・クイズの最高記録）は、その端末のブラウザに保存されます（ほかの端末には引きつがれません）。</li>
+            <li>教室ではイヤホンの使用がおすすめです。実物の三味線の調弦には「🎚 チューナー」が使えます。</li>
+          </ul>
+        </section>
       </div>
     </div>
   );
