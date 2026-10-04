@@ -132,6 +132,9 @@
   .tech-bar > * {
     flex-shrink: 0;
   }
+  .welcome ol {
+    display: none;
+  }
   .free-tip {
     padding-top: 1px;
     padding-bottom: 1px;

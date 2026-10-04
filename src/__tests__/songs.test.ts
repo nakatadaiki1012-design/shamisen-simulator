@@ -46,6 +46,21 @@ describe('練習曲データ', () => {
     }
   });
 
+  it('メリーさんのひつじ・よろこびの歌のメロディー', () => {
+    const names = (id: string, count: number) => {
+      const song = SONGS.find((x) => x.id === id)!;
+      const t = getTuning(song.tuningId);
+      return song.notes.slice(0, count).map((n) => doremiName(noteMidi(t, song.honsu, n.string, n.semitone)));
+    };
+    expect(names('mary', 13)).toEqual(['ミ', 'レ', 'ド', 'レ', 'ミ', 'ミ', 'ミ', 'レ', 'レ', 'レ', 'ミ', 'ソ', 'ソ']);
+    expect(names('joy', 15)).toEqual(['ミ', 'ミ', 'ファ', 'ソ', 'ソ', 'ファ', 'ミ', 'レ', 'ド', 'ド', 'レ', 'ミ', 'ミ', 'レ', 'レ']);
+    // 1 小節 4 拍でそろっている
+    for (const id of ['mary', 'joy']) {
+      const total = SONGS.find((x) => x.id === id)!.notes.reduce((a, n) => a + n.beats, 0);
+      expect(total % 4).toBe(0);
+    }
+  });
+
   it('さくらさくらの出だしは ラ ラ シ（三本＝一の糸がシ）', () => {
     const song = SONGS.find((s) => s.id === 'sakura')!;
     const t = getTuning(song.tuningId);

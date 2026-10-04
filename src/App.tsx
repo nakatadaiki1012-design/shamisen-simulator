@@ -71,6 +71,12 @@ export default function App() {
   const [sawari, setSawari] = useState<boolean>(() => loadPref('shamisen_sawari', true));
   const [guideOpen, setGuideOpen] = useState(false);
   const [metronomeOpen, setMetronomeOpen] = useState(false);
+  // はじめて開いた人への案内（閉じたら次からは出さない）
+  const [welcome, setWelcome] = useState<boolean>(() => !loadPref('shamisen_welcomed', false));
+  const closeWelcome = () => {
+    setWelcome(false);
+    savePref('shamisen_welcomed', true);
+  };
   const [tunerOpen, setTunerOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recorded, setRecorded] = useState<Recording | null>(null);
@@ -378,6 +384,31 @@ export default function App() {
         midi={midi}
       />
 
+      {welcome && (
+        <div className="welcome shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 sm:px-4 py-2 bg-amber-950/60 border-b border-amber-800/60 text-xs sm:text-sm">
+          <span className="font-bold text-amber-200">🔰 はじめての人へ</span>
+          <ol className="flex flex-wrap gap-x-3 gap-y-0.5 text-amber-50/90">
+            <li>① 棹をタップして音を出してみる</li>
+            <li>② 「三味線のきほん」で文化譜の読み方を知る</li>
+            <li>③ 「曲の練習」を 1 番から順に</li>
+            <li>④ 「クイズ」で勘所を覚える</li>
+          </ol>
+          <div className="flex gap-2 ml-auto">
+            <button
+              onClick={() => {
+                closeWelcome();
+                changeMode('song');
+              }}
+              className="rounded-lg bg-amber-500 text-stone-950 font-bold px-2.5 py-1"
+            >
+              曲の練習をはじめる
+            </button>
+            <button onClick={closeWelcome} className="rounded-lg bg-stone-800 border border-stone-700 px-2.5 py-1" aria-label="案内を閉じる">
+              閉じる
+            </button>
+          </div>
+        </div>
+      )}
       {metronomeOpen && <MetronomePanel onClose={() => setMetronomeOpen(false)} />}
       {mode === 'song' && (
         <SongPanel
