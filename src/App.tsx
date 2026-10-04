@@ -339,6 +339,8 @@ export default function App() {
   };
 
   const changeMode = (m: Mode) => {
+    // ほかのモードに進んだら、はじめての人への案内はもう出さない
+    if (m !== 'free' && welcome) closeWelcome();
     soundEngine.stopAll();
     setPanelMarks([]);
     setMode(m);
@@ -384,7 +386,7 @@ export default function App() {
         midi={midi}
       />
 
-      {welcome && (
+      {welcome && mode === 'free' && (
         <div className="welcome shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 sm:px-4 py-2 bg-amber-950/60 border-b border-amber-800/60 text-xs sm:text-sm">
           <span className="font-bold text-amber-200">🔰 はじめての人へ</span>
           <ol className="flex flex-wrap gap-x-3 gap-y-0.5 text-amber-50/90">
