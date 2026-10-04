@@ -456,6 +456,10 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
         <span className="song-meta text-xs text-stone-400">
           {getTuning(song.tuningId).name}・{honsuName(song.honsu)}
         </span>
+        <span className="song-meta text-xs text-emerald-300" title="✓ さいごまで弾けた曲 ／ ★ まちがいなし、またはテンポ練習で90点以上">
+          クリア {SONGS.filter((x) => badge(x.id)).length}/{SONGS.length}
+          {SONGS.some((x) => badge(x.id) === '★') && <span className="text-amber-300 ml-1">★{SONGS.filter((x) => badge(x.id) === '★').length}</span>}
+        </span>
         {!settingsMatch && (
           <button
             onClick={() => onApplySettings(song.tuningId, song.honsu)}
