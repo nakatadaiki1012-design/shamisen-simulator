@@ -14,6 +14,8 @@ interface Props {
   setPlayMode: (m: PlayMode) => void;
   haptic: boolean;
   setHaptic: (v: boolean) => void;
+  keyHints: boolean;
+  setKeyHints: (v: boolean) => void;
   midi: MidiState & { enable: () => void; disable: () => void };
 }
 
@@ -29,7 +31,7 @@ const TWO_HAND_HINT: Partial<Record<Technique, string>> = {
   suri: '両手モード: 糸が鳴っているあいだに、押さえた指を棹の上ですべらせるとスリになります。',
 };
 
-export function TechniqueBar({ technique, setTechnique, sawari, setSawari, playMode, setPlayMode, haptic, setHaptic, midi }: Props) {
+export function TechniqueBar({ technique, setTechnique, sawari, setSawari, playMode, setPlayMode, haptic, setHaptic, keyHints, setKeyHints, midi }: Props) {
   const current = TECHNIQUES.find((t) => t.id === technique)!;
   const desc = playMode === 'two' ? TWO_HAND_HINT[technique] ?? current.desc : current.desc;
   return (
@@ -83,6 +85,15 @@ export function TechniqueBar({ technique, setTechnique, sawari, setSawari, playM
           📳 振動 {haptic ? 'ON' : 'OFF'}
         </button>
       )}
+      <button
+        onClick={() => setKeyHints(!keyHints)}
+        className={`rounded-full px-2.5 py-1 border whitespace-nowrap ${
+          keyHints ? 'bg-sky-700 border-sky-500 text-white font-bold' : 'bg-stone-800 border-stone-700 text-stone-300'
+        }`}
+        title="パソコンのキーボードで弾くとき、どのキーがどの勘所かを棹に表示します"
+      >
+        ⌨ キー表示
+      </button>
       {midi.supported && (
         <button
           onClick={() => (midi.enabled ? midi.disable() : midi.enable())}

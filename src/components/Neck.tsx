@@ -51,6 +51,8 @@ interface Props {
   playMode: PlayMode;
   /** 両手モードで、いま押さえている勘所（0 = 開放） */
   pressed: Record<StringNo, number>;
+  /** キーボードで弾くときのキーの文字（表示する場合） */
+  keyHints?: Record<StringNo, string[]>;
   /** ワンハンド: 弾いた */
   onPlay: (s: StringNo, semitone: number, slide: boolean) => void;
   /** 両手: 左手で押さえた・動かした・離した（semitone 0 = 離した） */
@@ -103,6 +105,7 @@ export function Neck({
   pluckCount,
   playMode,
   pressed,
+  keyHints,
   onPlay,
   onFinger,
   onFingerUp,
@@ -315,6 +318,11 @@ export function Neck({
                   >
                     {shownLabel(s, semitone, mark)}
                   </span>
+                  {keyHints?.[s][semitone] && (
+                    <span className={`absolute z-10 rounded bg-sky-950/85 px-0.5 text-[0.55rem] leading-tight text-sky-200 bunka pointer-events-none ${vertical ? 'left-0.5 top-1/2 -translate-y-1/2' : 'left-1/2 -translate-x-1/2 top-1/2 -translate-y-[190%]'}`}>
+                      {keyHints[s][semitone]}
+                    </span>
+                  )}
                 </div>
               );
             })}
@@ -400,6 +408,7 @@ export function Neck({
                 >
                   <span className="font-serif-jp font-bold text-sm sm:text-base">{STRING_KANJI[s]}</span>
                   <span className="text-[0.6rem] sm:text-xs bunka">{shownLabel(s, 0, mark)}</span>
+                  {keyHints && <span className="text-[0.55rem] text-sky-700 bunka">キー {keyHints[s][0]}</span>}
                 </span>
               </div>
             );

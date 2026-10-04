@@ -33,6 +33,12 @@ const KEY_ROWS: [StringNo, string[]][] = [
   [2, ['KeyQ', 'KeyW', 'KeyE', 'KeyR', 'KeyT', 'KeyY', 'KeyU', 'KeyI', 'KeyO', 'KeyP', 'BracketLeft', 'BracketRight']],
   [3, ['KeyA', 'KeyS', 'KeyD', 'KeyF', 'KeyG', 'KeyH', 'KeyJ', 'KeyK', 'KeyL', 'Semicolon', 'Quote', 'Backslash']],
 ];
+/** 棹に表示するキーの文字（日本語キーボードの刻印） */
+const KEY_LABELS: Record<StringNo, string[]> = {
+  1: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '^'],
+  2: ['Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '@', '['],
+  3: ['A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ';', ':', ']'],
+};
 const KEY_MAP = new Map<string, { s: StringNo; semitone: number }>();
 for (const [s, codes] of KEY_ROWS) codes.forEach((c, i) => KEY_MAP.set(c, { s, semitone: i }));
 
@@ -92,6 +98,7 @@ export default function App() {
   // 演奏のしかた: ワンハンド（タップで発音）／両手（左手で押さえて右手の撥で打つ）
   const [playMode, setPlayMode] = useState<PlayMode>(() => loadPref('shamisen_play_mode', 'one'));
   const [haptic, setHaptic] = useState<boolean>(() => loadPref('shamisen_haptic', true));
+  const [keyHints, setKeyHints] = useState<boolean>(() => loadPref('shamisen_key_hints', false));
   const [pressed, setPressed] = useState<Record<StringNo, number>>({ 1: 0, 2: 0, 3: 0 });
   const pressedRef = useRef<Record<StringNo, number>>({ 1: 0, 2: 0, 3: 0 });
   const fingersRef = useRef(new Map<number, { s: StringNo; semitone: number }>());
@@ -105,6 +112,7 @@ export default function App() {
   useEffect(() => savePref('shamisen_show_same', showSame), [showSame]);
   useEffect(() => savePref('shamisen_play_mode', playMode), [playMode]);
   useEffect(() => savePref('shamisen_haptic', haptic), [haptic]);
+  useEffect(() => savePref('shamisen_key_hints', keyHints), [keyHints]);
 
   /** 触った手ごたえ（対応しているスマホだけ、ほんの少し震える） */
   const buzz = useCallback(
@@ -290,10 +298,14 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       if ((e.target as HTMLElement)?.tagName === 'SELECT') return;
-      if (guideOpen || tunerOpen) {
+      if (guideOpen || tunerOpen || recorded) {
         if (e.key === 'Escape') {
           setGuideOpen(false);
           setTunerOpen(false);
+          if (recorded) {
+            URL.revokeObjectURL(recorded.url);
+            setRecorded(null);
+          }
         }
         return;
       }
@@ -304,7 +316,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handlePlay, guideOpen, tunerOpen]);
+  }, [handlePlay, guideOpen, tunerOpen, recorded]);
 
   const applySettings = useCallback((id: Tuning['id'], h: number) => {
     setTuningId(id);
@@ -383,6 +395,8 @@ export default function App() {
         setPlayMode={setPlayMode}
         haptic={haptic}
         setHaptic={setHaptic}
+        keyHints={keyHints}
+        setKeyHints={setKeyHints}
         midi={midi}
       />
 
@@ -486,6 +500,7 @@ export default function App() {
           pluckCount={pluckCount}
           playMode={playMode}
           pressed={pressed}
+          keyHints={keyHints ? KEY_LABELS : undefined}
           onPlay={handlePlay}
           onFinger={handleFinger}
           onFingerUp={handleFingerUp}
