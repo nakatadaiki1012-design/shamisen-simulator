@@ -102,6 +102,8 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   const [index, setIndex] = useState(0);
   const [mistakes, setMistakes] = useState(0);
   const [progress, setProgress] = useState<Record<string, SongProgress>>(loadProgress);
+  /** 音ごとのまちがえた回数（苦手なところを見つけるため） */
+  const [missAt, setMissAt] = useState<Record<number, number>>({});
   /** 自分で弾いて進んだか（お手本で最後まで行ったときは記録しない） */
   const playedThrough = useRef(false);
   /** 同じ音で続けてまちがえた回数（3回でお手本の音を鳴らす） */
@@ -196,6 +198,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
 
   const selectSong = (s: Song) => {
     stopRhythm();
+    setMissAt({});
     setSongId(s.id);
     setIndex(0);
     setMistakes(0);
@@ -212,6 +215,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   }, []);
 
   const restart = () => {
+    setMissAt({});
     missStreak.current = 0;
     playedThrough.current = false;
     setLoopCount(0);
@@ -238,6 +242,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
       setIndex(advance(index));
     } else {
       setMistakes((m) => m + 1);
+      setMissAt((m) => ({ ...m, [index]: (m[index] ?? 0) + 1 }));
       setFeedback({ kind: 'ng', s: lastPlayed.string, semitone: lastPlayed.semitone });
       const targetMidi = noteMidi(tuning, honsu, target.string, target.semitone);
       missStreak.current += 1;
@@ -421,6 +426,22 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   }, [finished]);
 
   const nextSong = SONGS[SONGS.findIndex((x) => x.id === song.id) + 1];
+
+  /** 苦手なところ（まちがいの多い音、上位 2 つ） */
+  const troubles = Object.entries(missAt)
+    .map(([i, n]) => ({ i: Number(i), n }))
+    .filter((t) => t.n > 0 && song.notes[t.i])
+    .sort((a, b) => b.n - a.n || a.i - b.i)
+    .slice(0, 2);
+  const practiceTrouble = (i: number) => {
+    setMissAt({});
+    setMistakes(0);
+    playedThrough.current = false;
+    setLoop(true);
+    setLoopCount(0);
+    setMessage('');
+    setIndex(sectionOf(i).start);
+  };
   /** 曲えらびの印: ✓ さいごまで弾けた / ★ まちがいなし、またはテンポ練習で90点以上 */
   const badge = (id: string) => {
     const p = progress[id];
@@ -681,6 +702,21 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
               <button onClick={startRhythm} className="ml-2 underline text-sky-300">
                 テンポに合わせて弾いてみる
               </button>
+            )}
+            {troubles.length > 0 && (
+              <span className="block mt-1 font-normal text-stone-300">
+                苦手なところ:
+                {troubles.map((t) => (
+                  <button
+                    key={t.i}
+                    onClick={() => practiceTrouble(t.i)}
+                    className="ml-2 rounded-lg border border-rose-400/60 bg-rose-900/40 px-2 py-0.5 text-rose-200"
+                    title="この区切りを、できるまで区間練習します"
+                  >
+                    「{song.notes[sectionOf(t.i).start].section}」の {STRING_NAMES[song.notes[t.i].string]}の{bunkaLabel(song.notes[t.i].semitone)}（{t.n}回）→ 区間練習
+                  </button>
+                ))}
+              </span>
             )}
             {nextSong && (
               <button
