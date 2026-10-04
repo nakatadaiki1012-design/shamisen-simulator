@@ -10,9 +10,9 @@ export type SampleSet = 'musyngkite' | 'fatboy' | 'fluidr3';
 export type SoundSource = SampleSet | 'synth';
 
 export const SOUND_SOURCES: { id: SoundSource; name: string; hint: string }[] = [
-  { id: 'musyngkite', name: '録音A', hint: '本物の三味線の録音。歯切れがよく、いちばん三味線らしい（おすすめ）' },
-  { id: 'fatboy', name: '録音B', hint: '本物の三味線の録音。少し太く、こもった音' },
-  { id: 'fluidr3', name: '録音C', hint: '本物の三味線の録音。響きが長め' },
+  { id: 'musyngkite', name: '録音A', hint: '三味線の録音。歯切れがよい' },
+  { id: 'fatboy', name: '録音B', hint: '三味線の録音。響きの消え方が自然（おすすめ）' },
+  { id: 'fluidr3', name: '録音C', hint: '三味線の録音。響きが長め' },
   { id: 'synth', name: '合成', hint: '計算で作った音。録音が読み込めないときも鳴ります' },
 ];
 
@@ -101,5 +101,18 @@ export class SampleBank {
       if (a) return a;
     }
     return null;
+  }
+
+  /**
+   * 弾くたびに少しだけ違う録音を使う（本物は 1 回ごとに音色が少し違うので、
+   * 毎回まったく同じ音だと機械っぽく聞こえる）。ときどき隣の半音の録音を高さを直して使う。
+   */
+  varied(freq: number): Sample | null {
+    const base = this.nearest(freq);
+    if (!base) return null;
+    const m = Math.round(69 + 12 * Math.log2(freq / 440));
+    const r = Math.random();
+    const alt = r < 0.2 ? this.samples.get(m - 1) : r < 0.4 ? this.samples.get(m + 1) : undefined;
+    return alt ?? base;
   }
 }

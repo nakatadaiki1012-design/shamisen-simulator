@@ -77,8 +77,9 @@ export default function App() {
   const [technique, setTechnique] = useState<Technique>('bachi');
   const [sawari, setSawari] = useState<boolean>(() => loadPref('shamisen_sawari', true));
   const [soundSource, setSoundSource] = useState<SoundSource>(() => {
-    const v = loadPref<SoundSource>('shamisen_source', 'musyngkite');
-    return SOUND_SOURCES.some((x) => x.id === v) ? v : 'musyngkite';
+    // 前の版で最初の設定だった録音A は、録音B（より自然）に切りかえる
+    const v = loadPref<SoundSource>('shamisen_source2', 'fatboy');
+    return SOUND_SOURCES.some((x) => x.id === v) ? v : 'fatboy';
   });
   /** 録音の読み込みぐあい（null = 読み終わった／合成の音） */
   const [sourceLoading, setSourceLoading] = useState<{ loaded: number; total: number; failed?: boolean } | null>(null);
@@ -152,7 +153,7 @@ export default function App() {
 
   // 音源（本物の録音）を読み込む。今の調子でよく使う音から先に読み、読み終わるまでは合成の音で鳴る
   useEffect(() => {
-    savePref('shamisen_source', soundSource);
+    savePref('shamisen_source2', soundSource);
     if (soundSource === 'synth') {
       soundEngine.setSource('synth');
       setSourceLoading(null);

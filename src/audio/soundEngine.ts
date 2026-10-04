@@ -85,7 +85,7 @@ class SoundEngine {
   private stats: EngineStats = { cached: 0, exactHits: 0, fallbackHits: 0, syncRenders: 0, pooledGains: 0 };
   sawari = true;
   /** 鳴らす音: 本物の録音（3 種類）か、計算で作った音か */
-  private source: SoundSource = 'musyngkite';
+  private source: SoundSource = 'fatboy';
   private banks = new Map<SampleSet, SampleBank>();
 
   // ---------- 準備 ----------
@@ -110,17 +110,30 @@ class SoundEngine {
     master.gain.value = 0.75;
     master.connect(comp);
 
-    // 残響（減衰するノイズのインパルス応答）
+    // 残響（部屋の響き）。高い音ほど早く消えるようにして、金属的な響きにならないようにする。
+    // 三味線は畳の部屋で弾くことが多いので、短めでひかえめ
     const reverb = ctx.createConvolver();
-    const len = Math.floor(ctx.sampleRate * 1.3);
+    const len = Math.floor(ctx.sampleRate * 0.9);
     const ir = ctx.createBuffer(2, len, ctx.sampleRate);
     for (let c = 0; c < 2; c++) {
       const d = ir.getChannelData(c);
-      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3.5);
+      let lp = 0;
+      for (let i = 0; i < len; i++) {
+        const t = i / len;
+        // だんだん低い音だけが残る（1 次のローパスを時間とともに強くする）
+        const k = 0.9 - 0.85 * t;
+        lp += k * ((Math.random() * 2 - 1) - lp);
+        d[i] = lp * Math.exp(-6 * t) * (i < ctx.sampleRate * 0.008 ? i / (ctx.sampleRate * 0.008) : 1);
+      }
+      // 壁からの最初のはね返り（数か所）
+      for (const [ms, a] of [[11, 0.5], [17, -0.35], [23, 0.3], [31, -0.2]] as const) {
+        const at = Math.floor((ms + c * 2) * ctx.sampleRate / 1000);
+        if (at < len) d[at] += a;
+      }
     }
     reverb.buffer = ir;
     const wet = ctx.createGain();
-    wet.gain.value = 0.14;
+    wet.gain.value = 0.1;
     master.connect(reverb);
     reverb.connect(wet);
     wet.connect(comp);
@@ -381,7 +394,7 @@ class SoundEngine {
     const slideFrom = technique === 'suri' && prev && now - prev.startedAt < 3 ? prev.freq : null;
     this.release(s, now);
 
-    const sample = this.source === 'synth' ? null : this.banks.get(this.source)?.nearest(freq) ?? null;
+    const sample = this.source === 'synth' ? null : this.banks.get(this.source)?.varied(freq) ?? null;
     if (sample) {
       this.playSample(s, freq, technique, opts, sample, velocity, slideFrom, now);
       return;
@@ -435,7 +448,8 @@ class SoundEngine {
     now: number,
   ) {
     const ctx = this.ctx!;
-    const rate = freq / sample.freq;
+    // 人が弾くと毎回ほんの少しずつ違う（高さ ±3 セント・強さ・明るさ）
+    const rate = (freq / sample.freq) * Math.pow(2, ((Math.random() - 0.5) * 6) / 1200);
     const source = ctx.createBufferSource();
     source.buffer = sample.buffer;
     const filter = ctx.createBiquadFilter();
@@ -446,8 +460,8 @@ class SoundEngine {
     filter.connect(gain);
 
     // 強く弾くほど大きく、明るい音になる（本物の撥と同じ）
-    let level = sample.norm * (0.35 + 0.65 * velocity) * 0.9;
-    let cutoff = 2500 + 9000 * velocity;
+    let level = sample.norm * (0.35 + 0.65 * velocity) * 0.9 * (0.92 + Math.random() * 0.16);
+    let cutoff = (2500 + 9000 * velocity) * (0.85 + Math.random() * 0.3);
     let attack = 0;
     let length = 0; // 0 = 録音の長さのまま
     if (technique === 'sukui') {
