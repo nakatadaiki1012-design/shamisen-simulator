@@ -26,6 +26,7 @@ import {
   noteMidi,
 } from './data/notation';
 import { soundEngine } from './audio/soundEngine';
+import { SOUND_SOURCES, SoundSource } from './audio/sampleBank';
 
 /** キーボードで弾く（キーの物理的な位置で判定するので、日本語キーボードでもOK） */
 const KEY_ROWS: [StringNo, string[]][] = [
@@ -75,6 +76,12 @@ export default function App() {
   const maxSemitone = range === 'octave' ? 12 : MAX_SEMITONE;
   const [technique, setTechnique] = useState<Technique>('bachi');
   const [sawari, setSawari] = useState<boolean>(() => loadPref('shamisen_sawari', true));
+  const [soundSource, setSoundSource] = useState<SoundSource>(() => {
+    const v = loadPref<SoundSource>('shamisen_source', 'musyngkite');
+    return SOUND_SOURCES.some((x) => x.id === v) ? v : 'musyngkite';
+  });
+  /** 録音の読み込みぐあい（null = 読み終わった／合成の音） */
+  const [sourceLoading, setSourceLoading] = useState<{ loaded: number; total: number; failed?: boolean } | null>(null);
   const [guideOpen, setGuideOpen] = useState(false);
   const [metronomeOpen, setMetronomeOpen] = useState(false);
   // はじめて開いた人への案内（閉じたら次からは出さない）
@@ -142,6 +149,27 @@ export default function App() {
     return marks;
   }, [mode, showSame, lastPlayed, tuning, honsu, maxSemitone]);
   useEffect(() => soundEngine.setSawari(sawari), [sawari]);
+
+  // 音源（本物の録音）を読み込む。今の調子でよく使う音から先に読み、読み終わるまでは合成の音で鳴る
+  useEffect(() => {
+    savePref('shamisen_source', soundSource);
+    if (soundSource === 'synth') {
+      soundEngine.setSource('synth');
+      setSourceLoading(null);
+      return;
+    }
+    let alive = true;
+    const first: number[] = [];
+    for (let semitone = 0; semitone <= 12; semitone++) for (const s of STRINGS) first.push(noteMidi(tuning, honsu, s, semitone));
+    setSourceLoading({ loaded: soundEngine.loadedSamples, total: 48 });
+    soundEngine
+      .setSource(soundSource, first, (loaded, total) => alive && setSourceLoading({ loaded, total }))
+      .then((ok) => alive && setSourceLoading(ok ? null : { loaded: 0, total: 0, failed: true }));
+    return () => {
+      alive = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [soundSource]);
 
   // 今の調子・本数で使う全部の勘所（0〜24 × 3 本）を、別スレッドで前もって作っておく。
   // 画面を開いた直後から作りはじめるので、最初にタップするころには準備ができている
@@ -403,6 +431,9 @@ export default function App() {
         setTechnique={setTechnique}
         sawari={sawari}
         setSawari={setSawari}
+        soundSource={soundSource}
+        setSoundSource={setSoundSource}
+        sourceLoading={sourceLoading}
         playMode={playMode}
         setPlayMode={setPlayMode}
         haptic={haptic}

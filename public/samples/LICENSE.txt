@@ -1,0 +1,9 @@
+Shamisen samples extracted from gleitz/midi-js-soundfonts
+https://github.com/gleitz/midi-js-soundfonts (instrument: shamisen, notes A2-G#6)
+
+musyngkite/ : Musyng Kite soundfont - Creative Commons Attribution-ShareAlike 3.0
+fatboy/     : FatBoy soundfont - Creative Commons Attribution-ShareAlike 3.0
+fluidr3/    : FluidR3_GM soundfont by Frank Wen - Creative Commons Attribution 3.0
+
+The per-note "cents" values in manifest.json were measured for this app
+to correct the tuning of each recording.

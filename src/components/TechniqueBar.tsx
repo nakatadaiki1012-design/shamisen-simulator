@@ -4,12 +4,16 @@
 import { Technique, TECHNIQUES } from '../data/notation';
 import type { PlayMode } from './Neck';
 import type { MidiState } from '../hooks/useMidi';
+import { SOUND_SOURCES, SoundSource } from '../audio/sampleBank';
 
 interface Props {
   technique: Technique;
   setTechnique: (t: Technique) => void;
   sawari: boolean;
   setSawari: (v: boolean) => void;
+  soundSource: SoundSource;
+  setSoundSource: (v: SoundSource) => void;
+  sourceLoading: { loaded: number; total: number; failed?: boolean } | null;
   playMode: PlayMode;
   setPlayMode: (m: PlayMode) => void;
   haptic: boolean;
@@ -31,7 +35,7 @@ const TWO_HAND_HINT: Partial<Record<Technique, string>> = {
   suri: '両手モード: 糸が鳴っているあいだに、押さえた指を棹の上ですべらせるとスリになります。',
 };
 
-export function TechniqueBar({ technique, setTechnique, sawari, setSawari, playMode, setPlayMode, haptic, setHaptic, keyHints, setKeyHints, midi }: Props) {
+export function TechniqueBar({ technique, setTechnique, sawari, setSawari, soundSource, setSoundSource, sourceLoading, playMode, setPlayMode, haptic, setHaptic, keyHints, setKeyHints, midi }: Props) {
   const current = TECHNIQUES.find((t) => t.id === technique)!;
   const desc = playMode === 'two' ? TWO_HAND_HINT[technique] ?? current.desc : current.desc;
   return (
@@ -70,10 +74,33 @@ export function TechniqueBar({ technique, setTechnique, sawari, setSawari, playM
         className={`rounded-full px-2.5 py-1 border whitespace-nowrap ml-1 ${
           sawari ? 'bg-amber-700 border-amber-500 text-white font-bold' : 'bg-stone-800 border-stone-700 text-stone-400'
         }`}
-        title="一の糸がビーンとうなる「サワリ」の響き"
+        title="一の糸がビーンとうなる「サワリ」の響き（ほかの糸で同じ音名・5度・4度を弾くと一の糸が共鳴します）"
       >
         サワリ {sawari ? 'ON' : 'OFF'}
       </button>
+      <label className="flex items-center gap-1 whitespace-nowrap ml-1" title={SOUND_SOURCES.find((x) => x.id === soundSource)?.hint}>
+        <span className="text-stone-400">音源</span>
+        <select
+          value={soundSource}
+          onChange={(e) => setSoundSource(e.target.value as SoundSource)}
+          className="rounded-full bg-stone-800 border border-stone-600 px-2 py-1 text-stone-100"
+          aria-label="音源"
+        >
+          {SOUND_SOURCES.map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.name}
+            </option>
+          ))}
+        </select>
+        {sourceLoading &&
+          (sourceLoading.failed ? (
+            <span className="text-rose-300 text-[0.7rem]">読めませんでした（合成の音で鳴ります）</span>
+          ) : (
+            <span className="text-stone-400 text-[0.7rem]" aria-live="polite">
+              読み込み中 {sourceLoading.total ? Math.round((sourceLoading.loaded / sourceLoading.total) * 100) : 0}%
+            </span>
+          ))}
+      </label>
       {canVibrate && (
         <button
           onClick={() => setHaptic(!haptic)}

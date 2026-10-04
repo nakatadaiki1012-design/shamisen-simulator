@@ -219,6 +219,15 @@ export function GuideModal({ open, onClose, onListenTuning, onListenPosition }: 
             <li>一度開いた端末では、ネットがつながらなくても使えます。教室ではイヤホンの使用がおすすめです。実物の三味線の調弦には「🎚 チューナー」が使えます。</li>
           </ul>
         </section>
+
+        <section className="mt-5 text-[0.7rem] text-stone-400">
+          <h3 className="text-stone-300 font-bold mb-1">音源について</h3>
+          <p>
+            「録音A・B・C」は、本物の三味線を録音した音です（gleitz/midi-js-soundfonts より）。
+            録音A＝Musyng Kite、録音B＝FatBoy（どちらも CC BY-SA 3.0）、録音C＝FluidR3 GM（CC BY 3.0）。
+            「合成」は、このアプリで計算して作った音です。
+          </p>
+        </section>
       </div>
     </div>
   );

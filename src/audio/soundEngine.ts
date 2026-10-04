@@ -17,12 +17,14 @@ import {
   StrikeKind,
   ToneClass,
   renderStrike,
+  sympatheticLevel,
   synthesizeShamisen,
   toAudioBuffer,
   toneClassOf,
 } from './shamisenSynth';
 import type { WorkerRequest, WorkerResponse } from './synthWorker';
 import { unlockWebAudio } from './audioUnlock';
+import { Sample, SampleBank, SampleSet, SoundSource } from './sampleBank';
 
 /** 取っておく音の数の上限（メモリを使いすぎないように。1 音およそ 0.3MB） */
 const MAX_CACHED_NOTES = 130;
@@ -82,6 +84,9 @@ class SoundEngine {
   private worker: Worker | null | undefined;
   private stats: EngineStats = { cached: 0, exactHits: 0, fallbackHits: 0, syncRenders: 0, pooledGains: 0 };
   sawari = true;
+  /** 鳴らす音: 本物の録音（3 種類）か、計算で作った音か */
+  private source: SoundSource = 'musyngkite';
+  private banks = new Map<SampleSet, SampleBank>();
 
   // ---------- 準備 ----------
 
@@ -376,6 +381,12 @@ class SoundEngine {
     const slideFrom = technique === 'suri' && prev && now - prev.startedAt < 3 ? prev.freq : null;
     this.release(s, now);
 
+    const sample = this.source === 'synth' ? null : this.banks.get(this.source)?.nearest(freq) ?? null;
+    if (sample) {
+      this.playSample(s, freq, technique, opts, sample, velocity, slideFrom, now);
+      return;
+    }
+
     const { buffer, rate } = this.pick(s, freq, tone, opts.open, opts.ichiFreq);
     const source = ctx.createBufferSource();
     source.buffer = buffer;
@@ -393,7 +404,7 @@ class SoundEngine {
 
     // 撥・指の打音（強さに合わせて大きくなる）
     const hit = Math.pow(velocity, 1.6);
-    if (technique === 'bachi') this.strike('tataki', 0.62 * hit, now);
+    if (technique === 'bachi') this.strike('tataki', 0.4 * hit, now);
     else if (technique === 'suri') this.strike('tataki', slideFrom ? 0 : 0.25 * hit, now);
     else if (technique === 'uchi') this.strike('uchi', 0.45 * hit, now);
     else if (technique === 'hajiki') this.strike('hajiki', 0.3 * hit, now);
@@ -405,6 +416,142 @@ class SoundEngine {
       source.disconnect();
     };
     this.returnGain(gain, now + buffer.duration / rate + 0.05);
+  }
+
+  // ---------- 録音の音で鳴らす ----------
+
+  /**
+   * 本物の三味線の録音を、高さを合わせて鳴らす。
+   * 奏法のちがいは「音の明るさ（フィルター）」「立ち上がり」「音量」「長さ」で表す。
+   */
+  private playSample(
+    s: StringNo,
+    freq: number,
+    technique: Technique,
+    opts: PlayOptions,
+    sample: Sample,
+    velocity: number,
+    slideFrom: number | null,
+    now: number,
+  ) {
+    const ctx = this.ctx!;
+    const rate = freq / sample.freq;
+    const source = ctx.createBufferSource();
+    source.buffer = sample.buffer;
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.Q.value = 0.5;
+    const gain = this.takeGain();
+    source.connect(filter);
+    filter.connect(gain);
+
+    // 強く弾くほど大きく、明るい音になる（本物の撥と同じ）
+    let level = sample.norm * (0.35 + 0.65 * velocity) * 0.9;
+    let cutoff = 2500 + 9000 * velocity;
+    let attack = 0;
+    let length = 0; // 0 = 録音の長さのまま
+    if (technique === 'sukui') {
+      // 下からすくう: やわらかく、少し小さい
+      level *= 0.6;
+      cutoff = 1800;
+      attack = 0.012;
+    } else if (technique === 'hajiki') {
+      // 指ではじく: 撥の音がなく、短く小さい
+      level *= 0.55;
+      cutoff = 2200;
+      attack = 0.006;
+      length = 0.9;
+    } else if (technique === 'uchi') {
+      // 指で打つ: 弦を指板に打ちつける、こもった短い音
+      level *= 0.5;
+      cutoff = 1400;
+      attack = 0.004;
+      length = 0.7;
+    }
+    filter.frequency.value = Math.min(ctx.sampleRate / 2 - 100, cutoff);
+    const g = gain.gain;
+    g.cancelScheduledValues(now);
+    if (attack > 0) {
+      g.setValueAtTime(0, now);
+      g.linearRampToValueAtTime(level, now + attack);
+    } else {
+      g.setValueAtTime(level, now);
+    }
+    if (length > 0) g.setTargetAtTime(0, now + length * 0.4, length / 4);
+
+    if (slideFrom) {
+      source.playbackRate.setValueAtTime((rate * slideFrom) / freq, now);
+      source.playbackRate.linearRampToValueAtTime(rate, now + 0.12);
+    } else {
+      source.playbackRate.value = rate;
+    }
+    source.start(now);
+    const end = now + (length > 0 ? length * 1.6 : sample.buffer.duration / rate);
+    if (length > 0) source.stop(end);
+
+    // 打ち指は、指が棹に当たる小さな音を足す
+    if (technique === 'uchi') this.strike('uchi', 0.15 * Math.pow(velocity, 1.6), now);
+
+    const voice: Voice = { source, gain, freq, startedAt: now };
+    this.voices.set(s, voice);
+    source.onended = () => {
+      if (this.voices.get(s) === voice) this.voices.delete(s);
+      source.disconnect();
+      filter.disconnect();
+    };
+    this.returnGain(gain, end + 0.05);
+
+    // 一の糸の共鳴（サワリ）: 一の糸と同じ音名・5度・4度を弾くと、一の糸の開放弦が響く
+    const sym = sympatheticLevel({ frequency: freq, stringNo: s, open: opts.open, ichiFrequency: opts.ichiFreq, sawari: this.sawari });
+    const ichi = sym > 0 ? this.banks.get(this.source as SampleSet)?.nearest(opts.ichiFreq) : null;
+    if (ichi && length === 0) {
+      const rs = ctx.createBufferSource();
+      rs.buffer = ichi.buffer;
+      rs.playbackRate.value = opts.ichiFreq / ichi.freq;
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 2500;
+      const rg = this.takeGain();
+      const peak = ichi.norm * sym * 1.4 * (0.4 + 0.6 * velocity);
+      // 共鳴はあとから、ゆっくりふくらむ
+      rg.gain.setValueAtTime(0, now);
+      rg.gain.linearRampToValueAtTime(peak, now + 0.09);
+      rs.connect(lp);
+      lp.connect(rg);
+      rs.start(now + 0.01);
+      const rend = now + 0.01 + ichi.buffer.duration / rs.playbackRate.value;
+      rs.onended = () => {
+        rs.disconnect();
+        lp.disconnect();
+      };
+      this.returnGain(rg, rend + 0.05);
+    }
+  }
+
+  /**
+   * 音源を切りかえる。録音を選んだときは読み込みを始める（読み終わるまでは合成の音で鳴る）。
+   * first: 先に読みたい音（MIDI 番号）
+   */
+  setSource(src: SoundSource, first: number[] = [], onProgress?: (loaded: number, total: number) => void): Promise<boolean> {
+    this.source = src;
+    if (src === 'synth') return Promise.resolve(true);
+    this.init();
+    let bank = this.banks.get(src);
+    if (!bank) {
+      bank = new SampleBank(src);
+      this.banks.set(src, bank);
+    }
+    const b = bank;
+    return b.load(this.ctx!, first, onProgress).then(() => !b.failed);
+  }
+
+  get soundSource() {
+    return this.source;
+  }
+
+  /** 今の音源の録音がいくつ読めているか（テスト・表示用） */
+  get loadedSamples() {
+    return this.source === 'synth' ? 0 : this.banks.get(this.source)?.size ?? 0;
   }
 
   /** その糸がまだ鳴っているか（両手モードの打ち指・ハジキの判定用） */
