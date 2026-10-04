@@ -33,14 +33,14 @@ export function TechniqueBar({ technique, setTechnique, sawari, setSawari, playM
   const current = TECHNIQUES.find((t) => t.id === technique)!;
   const desc = playMode === 'two' ? TWO_HAND_HINT[technique] ?? current.desc : current.desc;
   return (
-    <div className="tech-bar shrink-0 flex flex-wrap items-center gap-1.5 px-2 sm:px-4 py-1.5 bg-stone-900 border-b border-stone-800 text-xs sm:text-sm">
+    <div role="region" aria-label="演奏の設定" className="tech-bar shrink-0 flex flex-wrap items-center gap-1.5 px-2 sm:px-4 py-1.5 bg-stone-900 border-b border-stone-800 text-xs sm:text-sm">
       <div className="shrink-0 flex rounded-full overflow-hidden border border-stone-600 mr-1" role="group" aria-label="演奏のしかた">
         {(['one', 'two'] as PlayMode[]).map((m) => (
           <button
             key={m}
             onClick={() => setPlayMode(m)}
             className={`px-2.5 py-1 whitespace-nowrap ${
-              playMode === m ? 'bg-sky-600 text-white font-bold' : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
+              playMode === m ? 'bg-sky-700 text-white font-bold' : 'bg-stone-800 text-stone-300 hover:bg-stone-700'
             }`}
             title={m === 'one' ? 'タップした勘所がそのまま鳴る' : '左手で棹を押さえ、右手の撥ゾーンで打って鳴らす'}
           >
@@ -48,7 +48,7 @@ export function TechniqueBar({ technique, setTechnique, sawari, setSawari, playM
           </button>
         ))}
       </div>
-      <span className="text-stone-500 mr-0.5 whitespace-nowrap">奏法</span>
+      <span className="text-stone-400 mr-0.5 whitespace-nowrap">奏法</span>
       {TECHNIQUES.map((t) => (
         <button
           key={t.id}
@@ -66,7 +66,7 @@ export function TechniqueBar({ technique, setTechnique, sawari, setSawari, playM
       <button
         onClick={() => setSawari(!sawari)}
         className={`rounded-full px-2.5 py-1 border whitespace-nowrap ml-1 ${
-          sawari ? 'bg-amber-600 border-amber-400 text-white font-bold' : 'bg-stone-800 border-stone-700 text-stone-400'
+          sawari ? 'bg-amber-700 border-amber-500 text-white font-bold' : 'bg-stone-800 border-stone-700 text-stone-400'
         }`}
         title="一の糸がビーンとうなる「サワリ」の響き"
       >
@@ -76,7 +76,7 @@ export function TechniqueBar({ technique, setTechnique, sawari, setSawari, playM
         <button
           onClick={() => setHaptic(!haptic)}
           className={`rounded-full px-2.5 py-1 border whitespace-nowrap ${
-            haptic ? 'bg-stone-700 border-stone-500 text-white' : 'bg-stone-800 border-stone-700 text-stone-500'
+            haptic ? 'bg-stone-700 border-stone-500 text-white' : 'bg-stone-800 border-stone-700 text-stone-400'
           }`}
           title="糸や勘所に触れたとき、スマホを少し振動させます"
         >
@@ -101,7 +101,7 @@ export function TechniqueBar({ technique, setTechnique, sawari, setSawari, playM
         </button>
       )}
       {midi.error && <span className="text-rose-300 text-[0.7rem]">{midi.error}</span>}
-      <span className="tech-desc text-stone-500 text-[0.7rem] sm:text-xs ml-1 hidden md:inline">{desc}</span>
+      <span className="tech-desc text-stone-400 text-[0.7rem] sm:text-xs ml-1 hidden md:inline">{desc}</span>
     </div>
   );
 }

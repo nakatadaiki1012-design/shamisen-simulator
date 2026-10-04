@@ -46,7 +46,7 @@ export function Header(p: Props) {
       <div className="header-row flex flex-wrap items-center gap-1.5 sm:gap-2">
         <h1 className="flex items-baseline gap-1.5 sm:mr-1">
           <span className="font-serif-jp text-lg min-[400px]:text-xl sm:text-2xl font-bold text-amber-100">三味線</span>
-          <span className="text-[0.65rem] text-stone-500 hidden lg:inline">学習用シミュレーター</span>
+          <span className="text-[0.65rem] text-stone-400 hidden lg:inline">学習用シミュレーター</span>
         </h1>
 
         <div className="flex rounded-lg overflow-hidden border border-stone-700 text-sm">

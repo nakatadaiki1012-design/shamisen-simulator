@@ -23,6 +23,9 @@ export function RecordingDialog({ recording, onClose, onDiscard }: Props) {
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-3" onClick={onClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="録音できました"
         className="relative w-full max-w-md rounded-2xl bg-stone-900 border border-stone-700 p-5 flex flex-col gap-3"
         onClick={(e) => e.stopPropagation()}
       >

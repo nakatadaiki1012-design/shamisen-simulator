@@ -117,6 +117,9 @@ export function TunerModal({ open, onClose, tuning, honsu, onPluck }: Props) {
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-2 sm:p-6" onClick={onClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="チューナー"
         className="relative w-full max-w-lg max-h-full overflow-y-auto rounded-2xl bg-stone-900 border border-stone-700 p-4 sm:p-5 text-sm"
         onClick={(e) => e.stopPropagation()}
       >
@@ -151,14 +154,14 @@ export function TunerModal({ open, onClose, tuning, honsu, onPluck }: Props) {
               <button
                 key={m}
                 onClick={() => setRefMode(m)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border ${refMode === m && m !== 'off' ? 'bg-sky-600 text-white border-sky-400 font-bold' : 'bg-stone-800 border-stone-700'}`}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-lg border ${refMode === m && m !== 'off' ? 'bg-sky-700 text-white border-sky-400 font-bold' : 'bg-stone-800 border-stone-700'}`}
               >
                 {m !== 'off' && <Volume2 size={14} />}
                 {label}
               </button>
             ))}
           </div>
-          <p className="text-[0.7rem] text-stone-500 mt-1.5">
+          <p className="text-[0.7rem] text-stone-400 mt-1.5">
             「ずっと鳴る音」と自分の糸を一緒に鳴らすと、高さがずれているときは「ウワンウワン」とうなります。うなりがゆっくりになって消えるところが、ぴったりです。
           </p>
         </section>
@@ -182,7 +185,7 @@ export function TunerModal({ open, onClose, tuning, honsu, onPluck }: Props) {
                     <span className="text-stone-300">
                       {doremiName(Math.round(69 + 12 * Math.log2(reading.freq / 440)))}（{westernName(Math.round(69 + 12 * Math.log2(reading.freq / 440)))}）
                     </span>
-                    <span className="text-stone-500 text-xs">{reading.freq.toFixed(1)} Hz</span>
+                    <span className="text-stone-400 text-xs">{reading.freq.toFixed(1)} Hz</span>
                     <span className={`ml-auto font-bold ${inTune ? 'text-emerald-300' : 'text-amber-300'}`}>{verdict}</span>
                   </div>
                   {/* 針 */}
@@ -194,7 +197,7 @@ export function TunerModal({ open, onClose, tuning, honsu, onPluck }: Props) {
                       style={{ left: `calc(${50 + cents}% - 3px)` }}
                     />
                   </div>
-                  <div className="flex justify-between text-[0.65rem] text-stone-500 mt-0.5">
+                  <div className="flex justify-between text-[0.65rem] text-stone-400 mt-0.5">
                     <span>低い −50</span>
                     <span>{reading.cents > 0 ? '+' : ''}{reading.cents.toFixed(0)} セント</span>
                     <span>+50 高い</span>
@@ -205,7 +208,7 @@ export function TunerModal({ open, onClose, tuning, honsu, onPluck }: Props) {
               )}
             </div>
           )}
-          <p className="text-[0.7rem] text-stone-500 mt-1.5">100 セント＝半音。±5 セント以内なら「ぴったり」です。</p>
+          <p className="text-[0.7rem] text-stone-400 mt-1.5">100 セント＝半音。±5 セント以内なら「ぴったり」です。</p>
         </section>
       </div>
     </div>

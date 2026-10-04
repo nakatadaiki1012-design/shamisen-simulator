@@ -74,9 +74,9 @@ export function MetronomePanel({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="metronome-panel shrink-0 flex items-center gap-2 px-2 sm:px-4 py-1.5 bg-stone-900 border-b border-stone-800 text-xs sm:text-sm select-none overflow-x-auto">
+    <div role="region" aria-label="メトロノーム" className="metronome-panel shrink-0 flex items-center gap-2 px-2 sm:px-4 py-1.5 bg-stone-900 border-b border-stone-800 text-xs sm:text-sm select-none overflow-x-auto">
       <span className="shrink-0 font-bold text-amber-200">🕐</span>
-      <div className="shrink-0 flex gap-1" aria-label="拍の位置">
+      <div className="shrink-0 flex gap-1" role="group" aria-label="拍の位置">
         {Array.from({ length: settings.beatsPerBar }, (_, i) => (
           <span
             key={i === beat ? `${i}-${flash}` : i}
@@ -97,7 +97,7 @@ export function MetronomePanel({ onClose }: { onClose: () => void }) {
       </button>
       <span className="shrink-0 text-center leading-none">
         <span className="bunka text-lg text-amber-100">{settings.bpm}</span>
-        <span className="text-[0.6rem] text-stone-500 ml-0.5">BPM</span>
+        <span className="text-[0.6rem] text-stone-400 ml-0.5">BPM</span>
       </span>
       <button onClick={() => setBpm(settings.bpm + 1)} className="shrink-0 p-1 rounded-lg bg-stone-800 hover:bg-stone-700" aria-label="速く">
         <Plus size={14} />
@@ -114,7 +114,7 @@ export function MetronomePanel({ onClose }: { onClose: () => void }) {
       <button onClick={tapTempo} className="shrink-0 px-2 py-1 rounded-lg bg-stone-800 border border-stone-700 hover:bg-stone-700" title="拍に合わせて何回かたたくと、その速さになります">
         タップでテンポ
       </button>
-      <div className="shrink-0 flex rounded-lg overflow-hidden border border-stone-700" aria-label="拍子">
+      <div className="shrink-0 flex rounded-lg overflow-hidden border border-stone-700" role="group" aria-label="拍子">
         {([2, 3, 4] as const).map((n) => (
           <button
             key={n}
@@ -125,19 +125,19 @@ export function MetronomePanel({ onClose }: { onClose: () => void }) {
           </button>
         ))}
       </div>
-      <div className="shrink-0 flex rounded-lg overflow-hidden border border-stone-700" aria-label="刻み">
+      <div className="shrink-0 flex rounded-lg overflow-hidden border border-stone-700" role="group" aria-label="刻み">
         {FEELS.map((f) => (
           <button
             key={f.id}
             onClick={() => setSettings((s) => ({ ...s, feel: f.id }))}
             title={f.hint}
-            className={`px-2 py-1 ${settings.feel === f.id ? 'bg-sky-600 text-white font-bold' : 'bg-stone-800'}`}
+            className={`px-2 py-1 ${settings.feel === f.id ? 'bg-sky-700 text-white font-bold' : 'bg-stone-800'}`}
           >
             {f.name}
           </button>
         ))}
       </div>
-      <span className="shrink-0 hidden lg:inline text-[0.65rem] text-stone-500">民謡・長唄は二拍子で数えることが多い。跳ねる曲は「ハネ」</span>
+      <span className="shrink-0 hidden lg:inline text-[0.65rem] text-stone-400">民謡・長唄は二拍子で数えることが多い。跳ねる曲は「ハネ」</span>
       <div className="flex-1" />
       <button onClick={onClose} className="shrink-0 p-1 rounded-full bg-stone-800 hover:bg-stone-700" aria-label="メトロノームを閉じる">
         <X size={15} />

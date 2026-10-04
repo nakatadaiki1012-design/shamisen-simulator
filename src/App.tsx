@@ -387,7 +387,7 @@ export default function App() {
       />
 
       {welcome && mode === 'free' && (
-        <div className="welcome shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 sm:px-4 py-2 bg-amber-950/60 border-b border-amber-800/60 text-xs sm:text-sm">
+        <div role="region" aria-label="はじめての人へ" className="welcome shrink-0 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 sm:px-4 py-2 bg-amber-950/60 border-b border-amber-800/60 text-xs sm:text-sm">
           <span className="font-bold text-amber-200">🔰 はじめての人へ</span>
           <ol className="flex flex-wrap gap-x-3 gap-y-0.5 text-amber-50/90">
             <li>① 棹をタップして音を出してみる</li>
@@ -436,17 +436,17 @@ export default function App() {
         />
       )}
       {mode === 'free' && (
-        <div className="free-tip shrink-0 flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-1.5 bg-stone-950 border-b border-stone-900">
+        <div role="region" aria-label="弾いた音" className="free-tip shrink-0 flex items-center gap-2 sm:gap-3 px-2 sm:px-4 py-1.5 bg-stone-950 border-b border-stone-900">
           <div className="flex items-baseline gap-1.5 min-w-[9.5rem] sm:min-w-[12rem]" aria-live="polite">
             {lastPlayed ? (
               <>
                 <span className="font-serif-jp text-amber-200 text-sm">{STRING_NAMES[lastPlayed.string]}</span>
                 <span className="bunka font-bold text-xl text-amber-300">{bunkaLabel(lastPlayed.semitone)}</span>
                 <span className="text-stone-300 text-sm">{doremiName(lastPlayed.midi)}</span>
-                <span className="text-stone-500 text-xs">{westernName(lastPlayed.midi)}</span>
+                <span className="text-stone-400 text-xs">{westernName(lastPlayed.midi)}</span>
               </>
             ) : (
-              <span className="text-stone-500 text-xs">弾いた音がここに出ます</span>
+              <span className="text-stone-400 text-xs">弾いた音がここに出ます</span>
             )}
           </div>
           <button
@@ -460,7 +460,7 @@ export default function App() {
             <input type="checkbox" checked={showSame} onChange={(e) => setShowSame(e.target.checked)} className="accent-sky-500" />
             同じ音の場所
           </label>
-          <span className="hidden sm:inline text-[0.7rem] sm:text-xs text-stone-500 truncate">
+          <span className="hidden sm:inline text-[0.7rem] sm:text-xs text-stone-400 truncate">
             {tuning.name}：{tuning.howTo}
           </span>
         </div>

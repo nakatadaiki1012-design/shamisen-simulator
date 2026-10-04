@@ -438,7 +438,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   const rowOf: Record<StringNo, number> = { 3: 0, 2: 1, 1: 2 };
 
   return (
-    <div className="song-panel shrink-0 border-b border-stone-800 bg-stone-900/90 px-2 sm:px-4 py-2 flex flex-col gap-2">
+    <div role="region" aria-label="曲の練習" className="song-panel shrink-0 border-b border-stone-800 bg-stone-900/90 px-2 sm:px-4 py-2 flex flex-col gap-2">
       {/* 上の段: 曲えらびとボタン */}
       <div className="flex flex-wrap items-center gap-2">
         <select
@@ -520,6 +520,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
           disabled={rhythm === 'count' || rhythm === 'play'}
           className="bg-stone-800 border border-stone-700 rounded-lg px-1.5 py-1.5 text-xs"
           title="お手本・テンポ練習の速さ"
+          aria-label="お手本・テンポ練習の速さ"
         >
           <option value={0.5}>ゆっくり</option>
           <option value={0.75}>少しゆっくり</option>
@@ -602,7 +603,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
                 style={{ width: `${width}rem` }}
                 title="ここから練習する"
               >
-                <div className="h-4 text-[0.6rem] text-stone-500 whitespace-nowrap px-0.5 text-left overflow-visible">
+                <div className="h-4 text-[0.6rem] text-stone-600 whitespace-nowrap px-0.5 text-left overflow-visible">
                   {note.section ?? ''}
                 </div>
                 <div className="tab-rows relative w-full">
@@ -706,14 +707,14 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
             )}
             次は <b className="text-amber-300">{STRING_NAMES[target.string]}</b> の
             <b className="text-amber-300 bunka text-base">「{bunkaLabel(target.semitone)}」</b>
-            <span className="text-stone-500">
+            <span className="text-stone-400">
               （{doremiName(noteMidi(tuning, honsu, target.string, target.semitone))}
               {target.technique && target.technique !== 'bachi'
                 ? `・${TECHNIQUES.find((t) => t.id === target.technique)!.name}`
                 : ''}
               ）
             </span>
-            <span className="song-desc text-stone-500 ml-2 hidden md:inline">{song.description}</span>
+            <span className="song-desc text-stone-400 ml-2 hidden md:inline">{song.description}</span>
           </span>
         ) : null}
       </div>

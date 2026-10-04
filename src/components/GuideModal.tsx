@@ -29,6 +29,9 @@ export function GuideModal({ open, onClose }: Props) {
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-2 sm:p-6" onClick={onClose}>
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="三味線のきほん"
         className="relative w-full max-w-3xl max-h-full overflow-y-auto rounded-2xl bg-stone-900 border border-stone-700 p-4 sm:p-6 text-sm leading-relaxed select-text"
         onClick={(e) => e.stopPropagation()}
       >
@@ -87,7 +90,7 @@ export function GuideModal({ open, onClose }: Props) {
               </tbody>
             </table>
           </div>
-          <p className="text-stone-500 text-xs mt-1">
+          <p className="text-stone-400 text-xs mt-1">
             ※「+1」は半音1つ分。「10」で開放弦のちょうど1オクターブ上になります。その上は 11・12・13・1#・14…と続きます。
           </p>
         </section>
@@ -98,9 +101,9 @@ export function GuideModal({ open, onClose }: Props) {
             {TUNINGS.map((t) => (
               <li key={t.id}>
                 <b className="font-serif-jp text-stone-200">{t.name}</b>
-                <span className="text-stone-500 text-xs ml-1">（{t.reading}）</span>
+                <span className="text-stone-400 text-xs ml-1">（{t.reading}）</span>
                 <div className="text-stone-400">{t.howTo}</div>
-                <div className="text-stone-500 text-xs">{t.mood}</div>
+                <div className="text-stone-400 text-xs">{t.mood}</div>
               </li>
             ))}
           </ul>

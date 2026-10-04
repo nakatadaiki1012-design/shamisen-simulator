@@ -193,7 +193,7 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
   };
 
   return (
-    <div className="quiz-panel shrink-0 border-b border-stone-800 bg-stone-900/90 px-2 sm:px-4 py-2 flex flex-col gap-2">
+    <div role="region" aria-label="クイズ" className="quiz-panel shrink-0 border-b border-stone-800 bg-stone-900/90 px-2 sm:px-4 py-2 flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-2 text-sm">
         <div className="flex rounded-lg overflow-hidden border border-stone-700">
           {(['position', 'name', 'ear'] as QuizType[]).map((t) => (
@@ -209,6 +209,7 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
         <select
           value={level}
           onChange={(e) => changeLevel(e.target.value as Level)}
+          aria-label="クイズのむずかしさ"
           className="bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-xs"
         >
           {(Object.keys(LEVELS) as Level[]).map((lv) => (
@@ -222,7 +223,7 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
         <span className="text-xs text-stone-300">
           正解 <b className="text-emerald-300 text-base">{score.correct}</b> / {score.total} 問
           {score.streak >= 3 && <span className="ml-2 text-amber-300">🔥 {score.streak} 連続！</span>}
-          {(bests[bestKey] ?? 0) > 0 && <span className="ml-2 text-stone-500">最高 {bests[bestKey]} 連続</span>}
+          {(bests[bestKey] ?? 0) > 0 && <span className="ml-2 text-stone-400">最高 {bests[bestKey]} 連続</span>}
         </span>
       </div>
 
@@ -235,7 +236,7 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
               {bunkaLabel(q.semitone)}
             </span>
             <span className="text-stone-400 text-sm"> を弾こう</span>
-            {q.semitone === 0 && <span className="text-stone-500 text-xs ml-2">（0 = どこも押さえない＝胴の部分をタップ）</span>}
+            {q.semitone === 0 && <span className="text-stone-400 text-xs ml-2">（0 = どこも押さえない＝胴の部分をタップ）</span>}
           </div>
         ) : type === 'name' ? (
           <div className="flex flex-wrap items-center gap-2 text-sm sm:text-base">

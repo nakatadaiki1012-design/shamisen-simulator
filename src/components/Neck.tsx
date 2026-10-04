@@ -333,7 +333,7 @@ export function Neck({
           onPointerCancel={onPadUp}
           aria-label="撥ゾーン: 糸をタップか上から下へ横切ると叩き、下から上へ横切ると掬い"
         >
-          <div className="pointer-events-none absolute top-1 right-2 text-[0.6rem] sm:text-xs text-stone-500 text-right leading-tight">
+          <div className="pointer-events-none absolute top-1 right-2 text-[0.6rem] sm:text-xs text-stone-600 text-right leading-tight">
             撥ゾーン
             <br />↓ 叩き　↑ 掬い
           </div>
