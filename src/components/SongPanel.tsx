@@ -40,6 +40,8 @@ interface Props {
   onDemoNote: (s: StringNo, semitone: number, technique: Technique) => void;
   /** 次の音の奏法（スクイなど）を奏法バーに反映する */
   onSuggestTechnique: (t: Technique) => void;
+  /** 棹の向き（まちがえたときに「どちらへ動かすか」を言うため） */
+  orientation: 'horizontal' | 'vertical';
 }
 
 type Judge = 'great' | 'good' | 'miss';
@@ -52,6 +54,27 @@ const JUDGE_STYLE: Record<Judge, string> = {
 const GREAT_MS = 120;
 const WINDOW_MS = 300;
 const COUNT_IN = 4;
+
+/** 曲ごとの学習の記録（この端末に保存）: さいごまで弾けたか・いちばんよかった正確さ */
+interface SongProgress {
+  cleared: boolean;
+  bestAccuracy: number;
+}
+const PROGRESS_KEY = 'shamisen_progress';
+function loadProgress(): Record<string, SongProgress> {
+  try {
+    return JSON.parse(localStorage.getItem(PROGRESS_KEY) ?? '{}');
+  } catch {
+    return {};
+  }
+}
+function saveProgress(all: Record<string, SongProgress>) {
+  try {
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(all));
+  } catch {
+    /* 保存できない環境では何もしない */
+  }
+}
 
 /** テンポ練習の自己ベスト（曲と速さごと）を、この端末に覚えておく */
 const BEST_KEY = 'shamisen_best_scores';
@@ -72,11 +95,14 @@ function saveBest(all: Record<string, number>) {
 
 const TECH_MARK = Object.fromEntries(TECHNIQUES.map((t) => [t.id, t.mark])) as Record<Technique, string>;
 
-export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings, onDemoNote, onSuggestTechnique }: Props) {
+export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings, onDemoNote, onSuggestTechnique, orientation }: Props) {
   const [songId, setSongId] = useState(SONGS[0].id);
   const song = SONGS.find((s) => s.id === songId)!;
   const [index, setIndex] = useState(0);
   const [mistakes, setMistakes] = useState(0);
+  const [progress, setProgress] = useState<Record<string, SongProgress>>(loadProgress);
+  /** 自分で弾いて進んだか（お手本で最後まで行ったときは記録しない） */
+  const playedThrough = useRef(false);
   /** 同じ音で続けてまちがえた回数（3回でお手本の音を鳴らす） */
   const missStreak = useRef(0);
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'ng'; s: StringNo; semitone: number } | null>(null);
@@ -186,6 +212,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
 
   const restart = () => {
     missStreak.current = 0;
+    playedThrough.current = false;
     setLoopCount(0);
     setIndex(0);
     setMistakes(0);
@@ -206,6 +233,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
       setFeedback({ kind: 'ok', s: lastPlayed.string, semitone: lastPlayed.semitone });
       setMessage('');
       missStreak.current = 0;
+      playedThrough.current = true;
       setIndex(advance(index));
     } else {
       setMistakes((m) => m + 1);
@@ -219,11 +247,16 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
         setMessage(`🔊 この音だよ！ 光っている「${STRING_NAMES[t.string]}の${bunkaLabel(t.semitone)}」の音をよく聴いてみよう。`);
         return;
       }
-      setMessage(
-        lastPlayed.midi === targetMidi
-          ? `音の高さは合っています！でも楽譜では「${STRING_NAMES[target.string]}の${bunkaLabel(target.semitone)}」です。`
-          : `ちがう音です。光っている「${STRING_NAMES[target.string]}の${bunkaLabel(target.semitone)}」を弾こう。`
-      );
+      const goal = `「${STRING_NAMES[target.string]}の${bunkaLabel(target.semitone)}」`;
+      const toBody = orientation === 'vertical' ? '下（胴の方）' : '右（胴の方）';
+      const toNut = orientation === 'vertical' ? '上（上駒の方）' : '左（上駒の方）';
+      let hint: string;
+      if (lastPlayed.midi === targetMidi) hint = `音の高さは合っています！でも楽譜では${goal}です。`;
+      else if (lastPlayed.string !== target.string) hint = `糸がちがいます。${goal}を弾こう。`;
+      else if (target.semitone === 0) hint = `${goal}は開放弦（どこも押さえない）。胴の部分を弾こう。`;
+      else if (lastPlayed.semitone < target.semitone) hint = `おしい、糸は合っています。もう少し${toBody}の${goal}へ。`;
+      else hint = `おしい、糸は合っています。もう少し${toNut}の${goal}へ。`;
+      setMessage(hint);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lastPlayed, demo, finished, target, tuning, honsu, rhythm, loop, index]);
@@ -373,6 +406,29 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
     el?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   }, [index, songId]);
 
+  // 自分で弾いて最後まで行ったら、学習の記録を残す
+  useEffect(() => {
+    if (!finished || demo || rhythm || !playedThrough.current) return;
+    playedThrough.current = false;
+    const total = song.notes.length;
+    const acc = Math.max(0, Math.round((total / (total + mistakes)) * 100));
+    const prev = loadProgress();
+    const next = { ...prev, [song.id]: { cleared: true, bestAccuracy: Math.max(acc, prev[song.id]?.bestAccuracy ?? 0) } };
+    saveProgress(next);
+    setProgress(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [finished]);
+
+  const nextSong = SONGS[SONGS.findIndex((x) => x.id === song.id) + 1];
+  /** 曲えらびの印: ✓ さいごまで弾けた / ★ まちがいなし、またはテンポ練習で90点以上 */
+  const badge = (id: string) => {
+    const p = progress[id];
+    const tempoBest = Math.max(0, ...Object.entries(best).filter(([k]) => k.startsWith(`${id}@`)).map(([, v]) => v));
+    if ((p?.bestAccuracy ?? 0) >= 100 || tempoBest >= 90) return '★';
+    if (p?.cleared) return '✓';
+    return '';
+  };
+
   const accuracy = useMemo(() => {
     const total = song.notes.length;
     return Math.max(0, Math.round((total / (total + mistakes)) * 100));
@@ -387,11 +443,12 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
         <select
           value={songId}
           onChange={(e) => selectSong(SONGS.find((s) => s.id === e.target.value)!)}
-          className="bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-sm font-semibold max-w-[14rem]"
+          className="bg-stone-800 border border-stone-700 rounded-lg px-2 py-1.5 text-sm font-semibold max-w-[15rem]"
+          aria-label="練習する曲（✓ 弾けた ★ 完ぺき）"
         >
-          {SONGS.map((s) => (
+          {SONGS.map((s, i) => (
             <option key={s.id} value={s.id}>
-              【{s.difficulty}】{s.title}
+              {i + 1}. {s.title}（{s.difficulty}）{badge(s.id) ? ` ${badge(s.id)}` : ''}
             </option>
           ))}
         </select>
@@ -603,7 +660,21 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
         ) : finished ? (
           <span className="text-emerald-300 font-bold">
             🎉 さいごまで弾けました！ まちがい {mistakes} 回（正確さ {accuracy}%）
+            {accuracy === 100 && <span className="text-amber-200 ml-1">★ 完ぺき！</span>}
             <button onClick={restart} className="ml-2 underline text-amber-300">もう一度</button>
+            {accuracy === 100 && (
+              <button onClick={startRhythm} className="ml-2 underline text-sky-300">
+                テンポに合わせて弾いてみる
+              </button>
+            )}
+            {nextSong && (
+              <button
+                onClick={() => selectSong(nextSong)}
+                className="ml-2 rounded-lg bg-amber-500 text-stone-950 px-2 py-0.5 no-underline"
+              >
+                次の曲へ ▶ {nextSong.title}
+              </button>
+            )}
           </span>
         ) : message ? (
           <span className="text-rose-300">{message}</span>

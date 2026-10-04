@@ -388,6 +388,7 @@ export default function App() {
           onApplySettings={applySettings}
           onDemoNote={demoNote}
           onSuggestTechnique={setTechnique}
+          orientation={orientation}
         />
       )}
       {mode === 'quiz' && (

@@ -17,7 +17,8 @@ interface Props {
   midi: MidiState & { enable: () => void; disable: () => void };
 }
 
-const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator;
+// 振動はタッチ画面のスマホ・タブレットだけ（パソコンでは意味がないので出さない）
+const canVibrate = typeof navigator !== 'undefined' && 'vibrate' in navigator && navigator.maxTouchPoints > 0;
 
 /** 両手モードでの奏法の意味（撥ゾーンの向きで叩き・掬いが決まる） */
 const TWO_HAND_HINT: Partial<Record<Technique, string>> = {
