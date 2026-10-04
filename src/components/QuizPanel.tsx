@@ -63,6 +63,25 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
   const [level, setLevel] = useState<Level>('easy');
   const [q, setQ] = useState<Question>(() => randomQuestion('easy', null));
   const [score, setScore] = useState({ correct: 0, total: 0, streak: 0 });
+  // クイズの種類・むずかしさごとの「最高連続正解」（この端末に保存）
+  const [bests, setBests] = useState<Record<string, number>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('shamisen_quiz_best') ?? '{}');
+    } catch {
+      return {};
+    }
+  });
+  const bestKey = `${type}@${level}`;
+  useEffect(() => {
+    if (score.streak <= (bests[bestKey] ?? 0)) return;
+    const next = { ...bests, [bestKey]: score.streak };
+    setBests(next);
+    try {
+      localStorage.setItem('shamisen_quiz_best', JSON.stringify(next));
+    } catch {
+      /* 保存できない環境では何もしない */
+    }
+  }, [score.streak, bestKey, bests]);
   const [state, setState] = useState<'asking' | 'wrong' | 'correct' | 'revealed'>('asking');
   const [wrongAt, setWrongAt] = useState<Question | null>(null);
   const [wrongChoice, setWrongChoice] = useState<number | null>(null);
@@ -203,6 +222,7 @@ export function QuizPanel({ tuning, honsu, maxSemitone, lastPlayed, onMarks, onL
         <span className="text-xs text-stone-300">
           正解 <b className="text-emerald-300 text-base">{score.correct}</b> / {score.total} 問
           {score.streak >= 3 && <span className="ml-2 text-amber-300">🔥 {score.streak} 連続！</span>}
+          {(bests[bestKey] ?? 0) > 0 && <span className="ml-2 text-stone-500">最高 {bests[bestKey]} 連続</span>}
         </span>
       </div>
 
