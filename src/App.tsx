@@ -333,6 +333,18 @@ export default function App() {
     tuneTimers.current = STRINGS.map((s, i) => window.setTimeout(() => sound(s, 0, 'bachi'), i * 650));
   };
 
+  /** 説明画面の「聴く」: 指定した調子の開放弦を、一・二・三の順に鳴らす（設定は変えない） */
+  const listenTuning = (id: Tuning['id']) => {
+    tuneTimers.current.forEach(clearTimeout);
+    const t = getTuning(id);
+    const ichi = midiToFreq(honsuToMidi(honsu));
+    tuneTimers.current = STRINGS.map((st, i) =>
+      window.setTimeout(() => {
+        soundEngine.play(st, midiToFreq(noteMidi(t, honsu, st, 0)), 'bachi', { ichiFreq: ichi, open: true });
+      }, i * 600)
+    );
+  };
+
   const toggleRecording = async () => {
     if (!recording) {
       if (recorded) URL.revokeObjectURL(recorded.url);
@@ -525,7 +537,7 @@ export default function App() {
         )}
       </main>
 
-      <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} onListenTuning={listenTuning} />
       <TunerModal open={tunerOpen} onClose={() => setTunerOpen(false)} tuning={tuning} honsu={honsu} onPluck={(st) => sound(st, 0, 'bachi')} />
       {recorded && (
         <RecordingDialog

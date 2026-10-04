@@ -2,11 +2,13 @@
  * 「三味線のきほん」説明画面
  */
 import { X } from 'lucide-react';
-import { TECHNIQUES, TUNINGS, bunkaLabel } from '../data/notation';
+import { TECHNIQUES, TUNINGS, Tuning, bunkaLabel } from '../data/notation';
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** その調子の一・二・三の糸の開放弦を順に鳴らす（今の設定は変えない） */
+  onListenTuning: (id: Tuning['id']) => void;
 }
 
 const PARTS = [
@@ -24,7 +26,7 @@ const KEY_ROWS = [
   ['一の糸', '1 2 3 4 5 6 7 8 9 0 - ^'],
 ];
 
-export function GuideModal({ open, onClose }: Props) {
+export function GuideModal({ open, onClose, onListenTuning }: Props) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-2 sm:p-6" onClick={onClose}>
@@ -102,6 +104,13 @@ export function GuideModal({ open, onClose }: Props) {
               <li key={t.id}>
                 <b className="font-serif-jp text-stone-200">{t.name}</b>
                 <span className="text-stone-400 text-xs ml-1">（{t.reading}）</span>
+                <button
+                  onClick={() => onListenTuning(t.id)}
+                  className="ml-2 rounded-lg bg-stone-800 border border-stone-700 hover:bg-stone-700 px-2 py-0.5 text-xs"
+                  aria-label={`${t.name}の開放弦を聴く`}
+                >
+                  ♪ 聴く
+                </button>
                 <div className="text-stone-400">{t.howTo}</div>
                 <div className="text-stone-400 text-xs">{t.mood}</div>
               </li>
