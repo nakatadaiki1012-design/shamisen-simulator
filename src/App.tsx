@@ -7,6 +7,8 @@ import { SongPanel, PlayedEvent } from './components/SongPanel';
 import { QuizPanel } from './components/QuizPanel';
 import { GuideModal } from './components/GuideModal';
 import { Recording, RecordingDialog } from './components/RecordingDialog';
+import { MetronomePanel } from './components/MetronomePanel';
+import { TunerModal } from './components/TunerModal';
 import {
   LabelMode,
   StringNo,
@@ -68,6 +70,8 @@ export default function App() {
   const [technique, setTechnique] = useState<Technique>('bachi');
   const [sawari, setSawari] = useState<boolean>(() => loadPref('shamisen_sawari', true));
   const [guideOpen, setGuideOpen] = useState(false);
+  const [metronomeOpen, setMetronomeOpen] = useState(false);
+  const [tunerOpen, setTunerOpen] = useState(false);
   const [recording, setRecording] = useState(false);
   const [recorded, setRecorded] = useState<Recording | null>(null);
 
@@ -280,8 +284,11 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       if ((e.target as HTMLElement)?.tagName === 'SELECT') return;
-      if (guideOpen) {
-        if (e.key === 'Escape') setGuideOpen(false);
+      if (guideOpen || tunerOpen) {
+        if (e.key === 'Escape') {
+          setGuideOpen(false);
+          setTunerOpen(false);
+        }
         return;
       }
       const hit = KEY_MAP.get(e.code);
@@ -291,7 +298,7 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [handlePlay, guideOpen]);
+  }, [handlePlay, guideOpen, tunerOpen]);
 
   const applySettings = useCallback((id: Tuning['id'], h: number) => {
     setTuningId(id);
@@ -355,6 +362,9 @@ export default function App() {
         recording={recording}
         canRecord={soundEngine.canRecord}
         onToggleRecording={toggleRecording}
+        metronomeOpen={metronomeOpen}
+        onToggleMetronome={() => setMetronomeOpen((v) => !v)}
+        onOpenTuner={() => setTunerOpen(true)}
       />
       <TechniqueBar
         technique={technique}
@@ -368,6 +378,7 @@ export default function App() {
         midi={midi}
       />
 
+      {metronomeOpen && <MetronomePanel onClose={() => setMetronomeOpen(false)} />}
       {mode === 'song' && (
         <SongPanel
           tuning={tuning}
@@ -466,6 +477,7 @@ export default function App() {
       </main>
 
       <GuideModal open={guideOpen} onClose={() => setGuideOpen(false)} />
+      <TunerModal open={tunerOpen} onClose={() => setTunerOpen(false)} tuning={tuning} honsu={honsu} onPluck={(st) => sound(st, 0, 'bachi')} />
       {recorded && (
         <RecordingDialog
           recording={recorded}

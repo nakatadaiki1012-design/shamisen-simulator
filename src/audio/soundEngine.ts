@@ -470,6 +470,49 @@ class SoundEngine {
     this.clicks = [];
   }
 
+  // ---------- 調弦の持続音 ----------
+
+  private drone: { osc: OscillatorNode; gain: GainNode } | null = null;
+
+  /**
+   * ずっと鳴り続ける基準の音（チューナー用）。自分の三味線の音と重ねて、
+   * 「ウワンウワン」といううなりが消えるところに合わせる
+   */
+  startDrone(freq: number) {
+    this.resume();
+    const ctx = this.ctx!;
+    if (this.drone) {
+      this.drone.osc.frequency.setTargetAtTime(freq, ctx.currentTime, 0.02);
+      return;
+    }
+    const osc = ctx.createOscillator();
+    osc.type = 'triangle';
+    osc.frequency.value = freq;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 1800;
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0, ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.18, ctx.currentTime + 0.08);
+    osc.connect(lp);
+    lp.connect(gain);
+    gain.connect(this.master!);
+    osc.start();
+    this.drone = { osc, gain };
+  }
+
+  stopDrone() {
+    if (!this.drone || !this.ctx) return;
+    const { osc, gain } = this.drone;
+    const t = this.ctx.currentTime;
+    gain.gain.cancelScheduledValues(t);
+    gain.gain.setValueAtTime(gain.gain.value, t);
+    gain.gain.linearRampToValueAtTime(0, t + 0.08);
+    osc.stop(t + 0.1);
+    osc.onended = () => gain.disconnect();
+    this.drone = null;
+  }
+
   // ---------- 録音 ----------
 
   /** このブラウザで録音できるか */
@@ -523,6 +566,7 @@ class SoundEngine {
 
   stopAll() {
     this.stopClicks();
+    this.stopDrone();
     if (!this.ctx) return;
     for (const s of [...this.voices.keys()]) this.release(s, this.ctx.currentTime);
   }

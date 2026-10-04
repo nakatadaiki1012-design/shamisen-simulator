@@ -35,6 +35,9 @@ interface Props {
   recording: boolean;
   canRecord: boolean;
   onToggleRecording: () => void;
+  metronomeOpen: boolean;
+  onToggleMetronome: () => void;
+  onOpenTuner: () => void;
 }
 
 export function Header(p: Props) {
@@ -134,6 +137,23 @@ export function Header(p: Props) {
         >
           {p.showLabels ? <Eye size={14} /> : <EyeOff size={14} />}
           {p.showLabels ? '番号あり' : '番号なし'}
+        </button>
+
+        <button
+          onClick={p.onToggleMetronome}
+          className={`flex items-center gap-1 rounded-lg px-2 py-1 border whitespace-nowrap ${
+            p.metronomeOpen ? 'bg-amber-500 text-stone-950 border-amber-400 font-bold' : 'bg-stone-900 border-stone-700 text-stone-300 hover:bg-stone-800'
+          }`}
+          title="拍子やハネも選べるメトロノーム"
+        >
+          🕐 メトロノーム
+        </button>
+        <button
+          onClick={p.onOpenTuner}
+          className="flex items-center gap-1 rounded-lg px-2 py-1 bg-stone-900 border border-stone-700 text-stone-300 hover:bg-stone-800 whitespace-nowrap"
+          title="基準の音やマイクで、本物の三味線の調弦を手伝います"
+        >
+          🎚 チューナー
         </button>
 
         <button

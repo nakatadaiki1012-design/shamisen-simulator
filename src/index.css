@@ -86,6 +86,10 @@
   .tab-area {
     --tab-row: 1.05rem;
   }
+  .metronome-panel {
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
   .song-panel,
   .quiz-panel {
     padding-top: 3px;
