@@ -103,6 +103,20 @@
     padding-top: 2px;
     padding-bottom: 2px;
   }
+  /* 弾き終わったときのメッセージは 1 行にまとめて横にスクロール（棹をせまくしない） */
+  .song-msg {
+    white-space: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    touch-action: pan-x;
+  }
+  .song-msg::-webkit-scrollbar {
+    display: none;
+  }
+  .song-msg .song-trouble {
+    display: inline;
+    margin-left: 0.5rem;
+  }
   .song-desc,
   .song-meta,
   .tech-desc {

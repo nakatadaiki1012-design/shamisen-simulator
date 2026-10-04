@@ -686,7 +686,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
       </div>
 
       {/* 下の段: 説明・メッセージ */}
-      <div className="text-xs sm:text-sm min-h-[1.25rem]">
+      <div className="song-msg text-xs sm:text-sm min-h-[1.25rem]">
         {rhythm === 'count' ? (
           <span className="text-emerald-300 font-bold text-base">カウント… {countdown}</span>
         ) : rhythm === 'play' ? (
@@ -726,8 +726,16 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
                 テンポに合わせて弾いてみる
               </button>
             )}
+            {nextSong && (
+              <button
+                onClick={() => selectSong(nextSong)}
+                className="ml-2 rounded-lg bg-amber-500 text-stone-950 px-2 py-0.5 no-underline"
+              >
+                次の曲へ ▶ {nextSong.title}
+              </button>
+            )}
             {troubles.length > 0 && (
-              <span className="block mt-1 font-normal text-stone-300">
+              <span className="song-trouble block mt-1 font-normal text-stone-300">
                 苦手なところ:
                 {troubles.map((t) => (
                   <button
@@ -740,14 +748,6 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
                   </button>
                 ))}
               </span>
-            )}
-            {nextSong && (
-              <button
-                onClick={() => selectSong(nextSong)}
-                className="ml-2 rounded-lg bg-amber-500 text-stone-950 px-2 py-0.5 no-underline"
-              >
-                次の曲へ ▶ {nextSong.title}
-              </button>
             )}
           </span>
         ) : message ? (
