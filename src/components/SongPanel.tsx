@@ -433,6 +433,18 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
     .filter((t) => t.n > 0 && song.notes[t.i])
     .sort((a, b) => b.n - a.n || a.i - b.i)
     .slice(0, 2);
+  // 弾き終わったら、楽譜をいちばんまちがえた音の所まで戻して見せる（赤い音）
+  const firstTrouble = troubles[0]?.i;
+  useEffect(() => {
+    if (!finished || rhythm || firstTrouble === undefined) return;
+    const t = setTimeout(() => {
+      scrollRef.current
+        ?.querySelector<HTMLElement>(`[data-idx="${firstTrouble}"]`)
+        ?.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }, 400);
+    return () => clearTimeout(t);
+  }, [finished, rhythm, firstTrouble]);
+
   const practiceTrouble = (i: number) => {
     setMissAt({});
     setMistakes(0);
@@ -632,6 +644,8 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
                     className={`absolute left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-[1.3rem] px-0.5 rounded bunka font-bold text-sm leading-5 ${
                       rhythm && judges[i]
                         ? JUDGE_STYLE[judges[i]!]
+                        : !rhythm && missAt[i]
+                          ? 'bg-rose-500 text-white'
                         : isCur
                           ? 'bg-amber-500 text-white'
                           : done
