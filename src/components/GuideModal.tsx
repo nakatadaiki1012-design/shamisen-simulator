@@ -216,7 +216,7 @@ export function GuideModal({ open, onClose, onListenTuning, onListenPosition }: 
               </button>
               こともできます。
             </li>
-            <li>教室ではイヤホンの使用がおすすめです。実物の三味線の調弦には「🎚 チューナー」が使えます。</li>
+            <li>一度開いた端末では、ネットがつながらなくても使えます。教室ではイヤホンの使用がおすすめです。実物の三味線の調弦には「🎚 チューナー」が使えます。</li>
           </ul>
         </section>
       </div>
