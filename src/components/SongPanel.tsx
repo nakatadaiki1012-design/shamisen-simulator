@@ -106,6 +106,8 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   const [missAt, setMissAt] = useState<Record<number, number>>({});
   /** 自分で弾いて進んだか（お手本で最後まで行ったときは記録しない） */
   const playedThrough = useRef(false);
+  /** とちゅうへ飛んだ・お手本や区間練習を使った（そのまま最後まで行っても「弾けた」には数えない） */
+  const skipped = useRef(false);
   /** 同じ音で続けてまちがえた回数（3回でお手本の音を鳴らす） */
   const missStreak = useRef(0);
   const [feedback, setFeedback] = useState<{ kind: 'ok' | 'ng'; s: StringNo; semitone: number } | null>(null);
@@ -198,6 +200,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
 
   const selectSong = (s: Song) => {
     stopRhythm();
+    skipped.current = false;
     setMissAt({});
     setSongId(s.id);
     setIndex(0);
@@ -215,6 +218,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   }, []);
 
   const restart = () => {
+    skipped.current = false;
     setMissAt({});
     missStreak.current = 0;
     playedThrough.current = false;
@@ -416,6 +420,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   useEffect(() => {
     if (!finished || demo || rhythm || !playedThrough.current) return;
     playedThrough.current = false;
+    if (skipped.current) return; // とちゅうから弾いたときは記録しない
     const total = song.notes.length;
     const acc = Math.max(0, Math.round((total / (total + mistakes)) * 100));
     const prev = loadProgress();
@@ -446,6 +451,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
   }, [finished, rhythm, firstTrouble]);
 
   const practiceTrouble = (i: number) => {
+    skipped.current = true;
     setMissAt({});
     setMistakes(0);
     playedThrough.current = false;
@@ -525,6 +531,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
             } else {
               stopRhythm();
               if (finished) restart();
+              skipped.current = true; // お手本のあとは、最初からやり直したときに記録する
               setDemo(true);
             }
           }}
@@ -569,6 +576,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
             onChange={(e) => {
               setLoop(e.target.checked);
               setLoopCount(0);
+              if (e.target.checked) skipped.current = true;
             }}
             className="accent-amber-500"
           />
@@ -625,6 +633,7 @@ export function SongPanel({ tuning, honsu, lastPlayed, onMarks, onApplySettings,
                 data-idx={i}
                 onClick={() => {
                   if (rhythm === 'count' || rhythm === 'play') return;
+                  if (i > 0) skipped.current = true;
                   setDemo(false);
                   setRhythm(null);
                   setIndex(i);
